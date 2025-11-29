@@ -1,0 +1,222 @@
+import sqlite3
+import uuid
+import json
+from datetime import datetime
+from typing import List, Dict, Optional
+
+DB_PATH = "data/forensics.db"
+
+def _get_connection():
+    """Get SQLite database connection."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row  # Return rows as dictionaries
+    return conn
+
+def _init_database():
+    """Initialize database tables if they don't exist."""
+    conn = _get_connection()
+    cursor = conn.cursor()
+    
+    # Sessions table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS sessions (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Messages table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+        )
+    ''')
+    
+    # Files table (with BLOB storage for actual file content)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS files (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            file_content BLOB,
+            file_hash TEXT,
+            file_type TEXT,
+            file_size INTEGER,
+            uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+# Initialize database on import
+_init_database()
+
+def get_all_sessions() -> List[Dict]:
+    """Returns a list of all existing sessions sorted by date."""
+    conn = _get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT id, title, created_at 
+        FROM sessions 
+        ORDER BY created_at DESC
+    ''')
+    
+    sessions = []
+    for row in cursor.fetchall():
+        sessions.append({
+            "id": row["id"],
+            "title": row["title"],
+            "created_at": row["created_at"],
+            "messages": [],
+            "files": []
+        })
+    
+    conn.close()
+    return sessions
+
+def create_new_session(title: str = "New Case") -> str:
+    """Creates a new session and returns the session_id."""
+    session_id = f"case_{str(uuid.uuid4())[:8]}"
+    
+    conn = _get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        INSERT INTO sessions (id, title, created_at)
+        VALUES (?, ?, ?)
+    ''', (session_id, title, datetime.now().isoformat()))
+    
+    conn.commit()
+    conn.close()
+    
+    return session_id
+
+def load_session(session_id: str) -> Optional[Dict]:
+    """Loads a specific session with all messages and files."""
+    conn = _get_connection()
+    cursor = conn.cursor()
+    
+    # Get session info
+    cursor.execute('SELECT * FROM sessions WHERE id = ?', (session_id,))
+    session_row = cursor.fetchone()
+    
+    if not session_row:
+        conn.close()
+        return None
+    
+    # Get messages
+    cursor.execute('''
+        SELECT role, content, timestamp 
+        FROM messages 
+        WHERE session_id = ? 
+        ORDER BY timestamp ASC
+    ''', (session_id,))
+    
+    messages = [{"role": row["role"], "content": row["content"]} 
+                for row in cursor.fetchall()]
+    
+    # Get files
+    cursor.execute('''
+        SELECT filename 
+        FROM files 
+        WHERE session_id = ?
+        ORDER BY uploaded_at ASC
+    ''', (session_id,))
+    
+    files = [row["filename"] for row in cursor.fetchall()]
+    
+    conn.close()
+    
+    return {
+        "id": session_row["id"],
+        "title": session_row["title"],
+        "created_at": session_row["created_at"],
+        "messages": messages,
+        "files": files
+    }
+
+def save_session(session_id: str, data: Dict):
+    """Updates session title (for compatibility with existing code)."""
+    conn = _get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        UPDATE sessions 
+        SET title = ? 
+        WHERE id = ?
+    ''', (data.get("title", "Untitled Case"), session_id))
+    
+    conn.commit()
+    conn.close()
+
+def add_message_to_session(session_id: str, role: str, content: str):
+    """Appends a message to the session history."""
+    conn = _get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        INSERT INTO messages (session_id, role, content)
+        VALUES (?, ?, ?)
+    ''', (session_id, role, content))
+    
+    conn.commit()
+    conn.close()
+
+def add_file_to_session(session_id: str, filename: str, file_content: bytes = None, 
+                        file_hash: str = None, file_type: str = None):
+    """Stores uploaded file metadata and optionally the file content in database."""
+    conn = _get_connection()
+    cursor = conn.cursor()
+    
+    # Check if file already exists
+    cursor.execute('''
+        SELECT COUNT(*) as count 
+        FROM files 
+        WHERE session_id = ? AND filename = ?
+    ''', (session_id, filename))
+    
+    if cursor.fetchone()["count"] == 0:
+        file_size = len(file_content) if file_content else 0
+        
+        cursor.execute('''
+            INSERT INTO files (session_id, filename, file_content, file_hash, file_type, file_size)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (session_id, filename, file_content, file_hash, file_type, file_size))
+    
+    conn.commit()
+    conn.close()
+
+def get_file_from_session(session_id: str, filename: str) -> Optional[bytes]:
+    """Retrieves file content from database."""
+    conn = _get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT file_content 
+        FROM files 
+        WHERE session_id = ? AND filename = ?
+    ''', (session_id, filename))
+    
+    row = cursor.fetchone()
+    conn.close()
+    
+    return row["file_content"] if row else None
+
+def export_file_from_session(session_id: str, filename: str, output_path: str):
+    """Exports a file from database to disk."""
+    file_content = get_file_from_session(session_id, filename)
+    
+    if file_content:
+        with open(output_path, 'wb') as f:
+            f.write(file_content)
+        return True
+    return False

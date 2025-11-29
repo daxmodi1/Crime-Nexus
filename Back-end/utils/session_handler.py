@@ -171,29 +171,83 @@ def add_message_to_session(session_id: str, role: str, content: str):
     conn.commit()
     conn.close()
 
-def add_file_to_session(session_id: str, filename: str, file_content: bytes = None, 
-                        file_hash: str = None, file_type: str = None):
-    """Stores uploaded file metadata and optionally the file content in database."""
+def file_exists_in_session(session_id: str, file_hash: str = None, filename: str = None) -> dict:
+    """
+    Check if a file already exists in the session.
+    Returns dict with 'exists' boolean and 'filename' if found.
+    Checks by hash first (most reliable), then by filename.
+    """
     conn = _get_connection()
     cursor = conn.cursor()
     
-    # Check if file already exists
+    # Check by hash first (content-based duplicate detection)
+    if file_hash:
+        cursor.execute('''
+            SELECT filename FROM files 
+            WHERE session_id = ? AND file_hash = ?
+        ''', (session_id, file_hash))
+        row = cursor.fetchone()
+        if row:
+            conn.close()
+            return {"exists": True, "filename": row["filename"], "matched_by": "hash"}
+    
+    # Check by filename as fallback
+    if filename:
+        cursor.execute('''
+            SELECT filename FROM files 
+            WHERE session_id = ? AND filename = ?
+        ''', (session_id, filename))
+        row = cursor.fetchone()
+        if row:
+            conn.close()
+            return {"exists": True, "filename": row["filename"], "matched_by": "filename"}
+    
+    conn.close()
+    return {"exists": False, "filename": None, "matched_by": None}
+
+
+def add_file_to_session(session_id: str, filename: str, file_content: bytes = None, 
+                        file_hash: str = None, file_type: str = None) -> bool:
+    """
+    Stores uploaded file metadata and optionally the file content in database.
+    Returns True if file was added, False if it already existed.
+    """
+    conn = _get_connection()
+    cursor = conn.cursor()
+    
+    # Check if file already exists by hash (content-based)
+    if file_hash:
+        cursor.execute('''
+            SELECT COUNT(*) as count 
+            FROM files 
+            WHERE session_id = ? AND file_hash = ?
+        ''', (session_id, file_hash))
+        if cursor.fetchone()["count"] > 0:
+            conn.close()
+            return False  # Duplicate by hash
+    
+    # Check if file already exists by filename
     cursor.execute('''
         SELECT COUNT(*) as count 
         FROM files 
         WHERE session_id = ? AND filename = ?
     ''', (session_id, filename))
     
-    if cursor.fetchone()["count"] == 0:
-        file_size = len(file_content) if file_content else 0
-        
-        cursor.execute('''
-            INSERT INTO files (session_id, filename, file_content, file_hash, file_type, file_size)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (session_id, filename, file_content, file_hash, file_type, file_size))
+    if cursor.fetchone()["count"] > 0:
+        conn.close()
+        return False  # Duplicate by filename
+    
+    # Insert new file
+    file_size = len(file_content) if file_content else 0
+    
+    cursor.execute('''
+        INSERT INTO files (session_id, filename, file_content, file_hash, file_type, file_size)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (session_id, filename, file_content, file_hash, file_type, file_size))
     
     conn.commit()
     conn.close()
+    return True
 
 def get_file_from_session(session_id: str, filename: str) -> Optional[bytes]:
     """Retrieves file content from database."""

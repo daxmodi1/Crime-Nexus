@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from core.rag_pipeline import get_rag_chain, ingest_into_vectorstore, get_vectorstore
-from core.ingestion import load_and_split_document
+from core.ingestion import load_and_split_document, extract_zip_file, is_supported_file, SUPPORTED_EXTENSIONS
 from core.models import EvidenceMetadata
 from utils.session_handler import (
     get_all_sessions,
@@ -20,6 +20,7 @@ from utils.session_handler import (
     save_session,
     add_message_to_session,
     add_file_to_session,
+    file_exists_in_session,
 )
 from config.settings import settings
 
@@ -162,16 +163,21 @@ async def upload_evidence(
     case_id: Optional[str] = Form(None)
 ):
     """
-    Upload a forensic evidence file (PDF, DOCX, PPTX) and ingest into vector store.
+    Upload forensic evidence file(s) and ingest into vector store.
+    Supports:
+    - Single files: PDF, DOCX, PPTX, TXT, CSV, JSON, LOG
+    - ZIP archives: Will be extracted and all supported files processed
     """
     # Validate session exists
     session = load_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
-    # Validate file type
-    allowed_extensions = [".pdf", ".docx", ".pptx"]
+    # Get file extension
     file_ext = os.path.splitext(file.filename)[1].lower()
+    
+    # Allowed extensions (including zip)
+    allowed_extensions = SUPPORTED_EXTENSIONS + [".zip"]
     
     if file_ext not in allowed_extensions:
         raise HTTPException(
@@ -191,48 +197,209 @@ async def upload_evidence(
         with open(file_path, "wb") as f:
             f.write(file_content)
         
-        # Compute hash for chain of custody
-        file_hash = compute_file_hash(file_path)
-        
-        # Create metadata
-        metadata = EvidenceMetadata(
-            filename=file.filename,
-            file_hash=file_hash,
-            file_type=file_ext,
-            case_id=case_id or session_id
-        )
-        
-        # Load and split document
-        chunks = load_and_split_document(file_path, metadata)
-        
-        if not chunks:
-            raise HTTPException(status_code=400, detail="Could not extract content from file")
-        
-        # Ingest into vector store
-        ingest_into_vectorstore(session_id, chunks)
-        
-        # Store file reference in session
-        add_file_to_session(
-            session_id=session_id,
-            filename=file.filename,
-            file_content=file_content,
-            file_hash=file_hash,
-            file_type=file_ext
-        )
-        
-        return {
-            "message": "Evidence uploaded and processed successfully",
-            "filename": file.filename,
-            "file_hash": file_hash,
-            "chunks_created": len(chunks),
-            "session_id": session_id
-        }
+        # Check if it's a ZIP file
+        if file_ext == ".zip":
+            return await process_zip_upload(
+                session_id=session_id,
+                zip_path=file_path,
+                session_upload_dir=session_upload_dir,
+                case_id=case_id
+            )
+        else:
+            # Process single file
+            return await process_single_file(
+                session_id=session_id,
+                file_path=file_path,
+                file_content=file_content,
+                file_ext=file_ext,
+                filename=file.filename,
+                case_id=case_id
+            )
         
     except Exception as e:
         # Clean up on failure
         if os.path.exists(file_path):
             os.remove(file_path)
         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+
+
+async def process_single_file(
+    session_id: str,
+    file_path: str,
+    file_content: bytes,
+    file_ext: str,
+    filename: str,
+    case_id: Optional[str]
+):
+    """Process a single evidence file."""
+    # Compute hash for chain of custody
+    file_hash = compute_file_hash(file_path)
+    
+    # Check if file already exists (by hash or filename)
+    existing = file_exists_in_session(session_id, file_hash=file_hash, filename=filename)
+    if existing["exists"]:
+        # Clean up the uploaded file since it's a duplicate
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        return {
+            "message": "File already exists in this session",
+            "filename": filename,
+            "existing_filename": existing["filename"],
+            "matched_by": existing["matched_by"],
+            "skipped": True,
+            "session_id": session_id
+        }
+    
+    # Create metadata
+    metadata = EvidenceMetadata(
+        filename=filename,
+        file_hash=file_hash,
+        file_type=file_ext,
+        case_id=case_id or session_id
+    )
+    
+    # Load and split document
+    chunks = load_and_split_document(file_path, metadata)
+    
+    if not chunks:
+        raise HTTPException(status_code=400, detail="Could not extract content from file")
+    
+    # Ingest into vector store
+    ingest_into_vectorstore(session_id, chunks)
+    
+    # Store file reference in session
+    add_file_to_session(
+        session_id=session_id,
+        filename=filename,
+        file_content=file_content,
+        file_hash=file_hash,
+        file_type=file_ext
+    )
+    
+    return {
+        "message": "Evidence uploaded and processed successfully",
+        "filename": filename,
+        "file_hash": file_hash,
+        "chunks_created": len(chunks),
+        "session_id": session_id
+    }
+
+
+async def process_zip_upload(
+    session_id: str,
+    zip_path: str,
+    session_upload_dir: str,
+    case_id: Optional[str]
+):
+    """
+    Process a ZIP file containing multiple evidence files.
+    Extracts all supported files and ingests them into the vector store.
+    """
+    results = {
+        "message": "ZIP archive processed",
+        "session_id": session_id,
+        "zip_filename": os.path.basename(zip_path),
+        "files_processed": [],
+        "files_skipped": [],
+        "files_duplicate": [],
+        "total_chunks": 0,
+        "errors": []
+    }
+    
+    try:
+        # Extract ZIP to session directory
+        extract_dir = os.path.join(session_upload_dir, "extracted")
+        os.makedirs(extract_dir, exist_ok=True)
+        
+        # Extract all supported files
+        extracted_files = extract_zip_file(zip_path, extract_dir)
+        
+        if not extracted_files:
+            raise HTTPException(
+                status_code=400, 
+                detail="No supported files found in ZIP archive. Supported: " + ", ".join(SUPPORTED_EXTENSIONS)
+            )
+        
+        # Process each extracted file
+        for extracted_path in extracted_files:
+            filename = os.path.basename(extracted_path)
+            file_ext = os.path.splitext(filename)[1].lower()
+            
+            try:
+                # Read file content
+                with open(extracted_path, "rb") as f:
+                    file_content = f.read()
+                
+                # Compute hash
+                file_hash = compute_file_hash(extracted_path)
+                
+                # Check for duplicates before processing
+                existing = file_exists_in_session(session_id, file_hash=file_hash, filename=filename)
+                if existing["exists"]:
+                    results["files_duplicate"].append({
+                        "filename": filename,
+                        "existing_filename": existing["filename"],
+                        "matched_by": existing["matched_by"]
+                    })
+                    print(f"Skipping duplicate file: {filename} (matched by {existing['matched_by']})")
+                    continue
+                
+                # Create metadata
+                metadata = EvidenceMetadata(
+                    filename=filename,
+                    file_hash=file_hash,
+                    file_type=file_ext,
+                    case_id=case_id or session_id
+                )
+                
+                # Load and split document
+                chunks = load_and_split_document(extracted_path, metadata)
+                
+                if chunks:
+                    # Ingest into vector store
+                    ingest_into_vectorstore(session_id, chunks)
+                    
+                    # Store file reference
+                    add_file_to_session(
+                        session_id=session_id,
+                        filename=filename,
+                        file_content=file_content,
+                        file_hash=file_hash,
+                        file_type=file_ext
+                    )
+                    
+                    results["files_processed"].append({
+                        "filename": filename,
+                        "file_hash": file_hash,
+                        "chunks": len(chunks)
+                    })
+                    results["total_chunks"] += len(chunks)
+                else:
+                    results["files_skipped"].append({
+                        "filename": filename,
+                        "reason": "No content extracted"
+                    })
+                    
+            except Exception as e:
+                results["errors"].append({
+                    "filename": filename,
+                    "error": str(e)
+                })
+                print(f"Error processing {filename}: {e}")
+        
+        # Clean up: optionally remove extracted files (keep them for reference)
+        # shutil.rmtree(extract_dir)
+        
+        # Remove the original ZIP file to save space
+        if os.path.exists(zip_path):
+            os.remove(zip_path)
+        
+        results["message"] = f"Successfully processed {len(results['files_processed'])} files from ZIP archive"
+        
+        return results
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing ZIP file: {str(e)}")
 
 
 @app.get("/sessions/{session_id}/files")

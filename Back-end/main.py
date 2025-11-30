@@ -224,6 +224,33 @@ async def upload_evidence(
         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
 
+@app.post("/sessions/{session_id}/people")
+async def create_person(session_id: str, name: str = Form(...), role: str = Form(None), notes: str = Form(None)):
+    """Add a person of interest to the case graph."""
+    session = load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    person = {"name": name, "role": role, "notes": notes}
+    try:
+        created = add_person(session_id, person)
+        return {"message": "Person added", "person": created}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error adding person: {e}")
+
+
+@app.get("/sessions/{session_id}/people")
+async def list_people(session_id: str):
+    session = load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    try:
+        people = get_people(session_id)
+        return {"session_id": session_id, "people": people}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error querying people: {e}")
+
+
 async def process_single_file(
     session_id: str,
     file_path: str,
@@ -502,7 +529,7 @@ async def delete_session_endpoint(session_id: str):
             print(f"Could not delete ChromaDB collection: {e}")
     except Exception as e:
         print(f"ChromaDB cleanup error: {e}")
-    
+
     # Delete from SQLite database
     deleted = delete_session(session_id)
     if not deleted:
@@ -539,6 +566,78 @@ async def search_evidence(session_id: str, query: str, k: int = 5):
         return {"query": query, "results": [], "error": str(e)}
 
 
+# --- User Profiling / Entity Extraction Endpoints ---
+
+@app.post("/sessions/{session_id}/extract-entities")
+async def extract_entities(session_id: str):
+    """
+    Extract entities and relationships from session documents using AI.
+    Uses LLMGraphTransformer with documents loaded directly from ingestion loaders.
+    Does NOT use ChromaDB embeddings.
+    """
+    from core.User_profiling import extract_graph_from_session_files
+    
+    session = load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    try:
+        # Extract graph using ingestion loaders directly (not ChromaDB)
+        result = extract_graph_from_session_files(session_id, UPLOAD_DIR)
+        
+        if result.get("error"):
+            return {
+                "success": False,
+                "message": result.get("error"),
+                "nodes": [],
+                "edges": []
+            }
+        
+        if not result.get("nodes"):
+            return {
+                "success": False,
+                "message": result.get("message", "No entities could be extracted"),
+                "nodes": [],
+                "edges": []
+            }
+        
+        # Store the graph data in session
+        session["graph_data"] = result
+        save_session(session_id, session)
+        
+        return {
+            "success": True,
+            "message": f"Extracted {result.get('total_nodes', 0)} entities and {result.get('total_edges', 0)} relationships",
+            **result
+        }
+    except Exception as e:
+        print(f"Entity extraction error: {e}")
+        return {
+            "success": False,
+            "message": str(e),
+            "nodes": [],
+            "edges": []
+        }
+
+
+@app.get("/sessions/{session_id}/graph")
+async def get_session_graph(session_id: str):
+    """Get the extracted knowledge graph for a session"""
+    session = load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    graph_data = session.get("graph_data", {"nodes": [], "edges": []})
+    
+    return {
+        "session_id": session_id,
+        "nodes": graph_data.get("nodes", []),
+        "edges": graph_data.get("edges", []),
+        "total_nodes": len(graph_data.get("nodes", [])),
+        "total_edges": len(graph_data.get("edges", []))
+    }
+
+
 # --- Run with Uvicorn ---
 
 if __name__ == "__main__":
@@ -549,3 +648,4 @@ if __name__ == "__main__":
         port=8000,
         reload=True
     )
+

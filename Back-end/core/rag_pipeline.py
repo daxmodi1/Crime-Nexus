@@ -1,6 +1,6 @@
 from langchain_chroma import Chroma
 from langchain_groq import ChatGroq
-from langchain_ollama import OllamaEmbeddings
+from langchain_ollama import OllamaEmbeddings, ChatOllama
 from langchain_classic.chains import RetrievalQA
 from langchain_core.prompts import PromptTemplate
 from config.settings import settings
@@ -128,9 +128,13 @@ def get_rag_chain(session_id: str):
         template=FORENSICS_PROMPT_TEMPLATE,
         input_variables=["context", "question"]
     )
-    
+    llm_2 = ChatOllama(
+        base_url="https://recommendatory-scientifically-abigail.ngrok-free.dev/",
+        model="forensic-analyst-model",
+        temperature=0.5
+    )
     qa_chain = RetrievalQA.from_chain_type(
-        llm=llm,
+        llm=llm_2,
         chain_type="stuff",
         retriever=retriever,
         return_source_documents=True,

@@ -68,4 +68,32 @@ async function deleteSession(sessionId) {
   return await res.json();
 }
 
-export { BASE_URL, createSession, sendChatMessage, getSessionMessages, uploadFile, getSessions, getSessionFiles, deleteSession };
+async function extractEntities(sessionId) {
+  const res = await fetch(`${BASE_URL}/sessions/${sessionId}/extract-entities`, {
+    method: 'POST'
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || 'Failed to extract entities');
+  }
+  return await res.json();
+}
+
+async function getSessionGraph(sessionId) {
+  const res = await fetch(`${BASE_URL}/sessions/${sessionId}/graph`);
+  if (!res.ok) throw new Error('Failed to fetch graph');
+  return await res.json();
+}
+
+export { 
+  BASE_URL, 
+  createSession, 
+  sendChatMessage, 
+  getSessionMessages, 
+  uploadFile, 
+  getSessions, 
+  getSessionFiles, 
+  deleteSession,
+  extractEntities,
+  getSessionGraph
+};

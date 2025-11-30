@@ -22,9 +22,16 @@ def _init_database():
         CREATE TABLE IF NOT EXISTS sessions (
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            graph_data TEXT DEFAULT NULL
         )
     ''')
+    
+    # Add graph_data column if it doesn't exist (for existing databases)
+    try:
+        cursor.execute('ALTER TABLE sessions ADD COLUMN graph_data TEXT DEFAULT NULL')
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     
     # Messages table
     cursor.execute('''
@@ -136,24 +143,38 @@ def load_session(session_id: str) -> Optional[Dict]:
     
     conn.close()
     
+    # Parse graph_data from JSON if present
+    graph_data = {}
+    try:
+        if session_row["graph_data"]:
+            graph_data = json.loads(session_row["graph_data"])
+    except (json.JSONDecodeError, KeyError, TypeError):
+        pass
+    
     return {
         "id": session_row["id"],
         "title": session_row["title"],
         "created_at": session_row["created_at"],
         "messages": messages,
-        "files": files
+        "files": files,
+        "graph_data": graph_data
     }
 
 def save_session(session_id: str, data: Dict):
-    """Updates session title (for compatibility with existing code)."""
+    """Updates session data including title and graph_data."""
     conn = _get_connection()
     cursor = conn.cursor()
     
+    # Serialize graph_data to JSON if present
+    graph_data_json = None
+    if "graph_data" in data:
+        graph_data_json = json.dumps(data["graph_data"])
+    
     cursor.execute('''
         UPDATE sessions 
-        SET title = ? 
+        SET title = ?, graph_data = COALESCE(?, graph_data)
         WHERE id = ?
-    ''', (data.get("title", "Untitled Case"), session_id))
+    ''', (data.get("title", "Untitled Case"), graph_data_json, session_id))
     
     conn.commit()
     conn.close()

@@ -111,9 +111,9 @@ const DashboardView = ({
         {/* Tab Content */}
         <main className="flex-1 overflow-auto p-6 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-zinc-950/50">
           
-          {activeTab === 'timeline' && <TimelineTab />}
+          {activeTab === 'timeline' && <TimelineTab sessionId={currentCase?.sessionId || currentCase?.id} />}
           {activeTab === 'users' && <PeopleTab />}
-          {activeTab === 'files' && <EvidenceTab />}
+          {activeTab === 'files' && <EvidenceTab sessionId={currentCase?.sessionId || currentCase?.id} />}
           {activeTab === 'chat' && (
             <ChatTab 
               messages={messages}

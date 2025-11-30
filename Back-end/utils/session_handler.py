@@ -274,3 +274,31 @@ def export_file_from_session(session_id: str, filename: str, output_path: str):
             f.write(file_content)
         return True
     return False
+
+
+def delete_session(session_id: str) -> bool:
+    """
+    Deletes a session and all associated data from the database.
+    Returns True if session was deleted, False if not found.
+    """
+    conn = _get_connection()
+    cursor = conn.cursor()
+    
+    # Check if session exists
+    cursor.execute('SELECT id FROM sessions WHERE id = ?', (session_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return False
+    
+    # Delete messages for this session
+    cursor.execute('DELETE FROM messages WHERE session_id = ?', (session_id,))
+    
+    # Delete files for this session
+    cursor.execute('DELETE FROM files WHERE session_id = ?', (session_id,))
+    
+    # Delete the session itself
+    cursor.execute('DELETE FROM sessions WHERE id = ?', (session_id,))
+    
+    conn.commit()
+    conn.close()
+    return True

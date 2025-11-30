@@ -1,5 +1,27 @@
 import React, { useRef, useEffect } from 'react';
 import { Bot, ChevronRight } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+
+// Markdown message component for AI responses
+const MarkdownMessage = ({ content }) => {
+  return (
+    <div className="prose prose-invert prose-sm max-w-none
+      prose-headings:text-cyan-400 prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2
+      prose-h2:text-base prose-h2:border-b prose-h2:border-zinc-700 prose-h2:pb-1
+      prose-h3:text-sm prose-h3:text-zinc-300
+      prose-p:text-zinc-300 prose-p:leading-relaxed prose-p:my-2
+      prose-strong:text-cyan-300
+      prose-ul:my-2 prose-li:text-zinc-300 prose-li:my-0.5
+      prose-table:text-xs prose-table:my-3
+      prose-th:bg-zinc-700/50 prose-th:text-zinc-200 prose-th:px-3 prose-th:py-1.5 prose-th:text-left prose-th:font-medium
+      prose-td:bg-zinc-800/30 prose-td:text-zinc-300 prose-td:px-3 prose-td:py-1.5 prose-td:border-t prose-td:border-zinc-700/50
+      prose-hr:border-zinc-700 prose-hr:my-3
+      prose-code:text-cyan-300 prose-code:bg-zinc-800 prose-code:px-1 prose-code:rounded
+    ">
+      <ReactMarkdown>{content}</ReactMarkdown>
+    </div>
+  );
+};
 
 const ChatTab = ({ messages, newMessage, setNewMessage, isAiTyping, onSendMessage }) => {
   const messagesEndRef = useRef(null);
@@ -18,6 +40,19 @@ const ChatTab = ({ messages, newMessage, setNewMessage, isAiTyping, onSendMessag
             Secure AI Channel - End-to-End Encrypted
           </span>
         </div>
+        
+        {messages.length === 0 && !isAiTyping && (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="p-4 rounded-full bg-zinc-800/50 mb-4">
+              <Bot size={32} className="text-zinc-600" />
+            </div>
+            <h3 className="text-zinc-400 font-medium mb-2">Start Your Investigation</h3>
+            <p className="text-zinc-500 text-sm max-w-sm">
+              Ask questions about your uploaded evidence. The AI will analyze documents and provide forensic insights.
+            </p>
+          </div>
+        )}
+        
         {messages.map((msg) => (
           <div key={msg.id} className={`flex flex-col ${msg.sender === 'You' ? 'items-end' : 'items-start'}`}>
             <div className="flex items-center gap-2 mb-1">
@@ -25,12 +60,16 @@ const ChatTab = ({ messages, newMessage, setNewMessage, isAiTyping, onSendMessag
               <span className="text-xs font-bold text-zinc-400">{msg.sender}</span>
               <span className="text-[10px] text-zinc-600 font-mono">{msg.time}</span>
             </div>
-            <div className={`max-w-[80%] px-4 py-3 text-sm shadow-lg ${
+            <div className={`px-4 py-3 text-sm shadow-lg ${
               msg.sender === 'You' 
-                ? 'bg-cyan-900/50 text-cyan-50 border border-cyan-800 rounded-2xl rounded-tr-sm' 
-                : 'bg-zinc-800 text-zinc-200 border border-zinc-700 rounded-2xl rounded-tl-sm'
+                ? 'max-w-[80%] bg-cyan-900/50 text-cyan-50 border border-cyan-800 rounded-2xl rounded-tr-sm' 
+                : 'max-w-[90%] bg-zinc-800/80 text-zinc-200 border border-zinc-700 rounded-2xl rounded-tl-sm'
             }`}>
-              {msg.text}
+              {msg.sender === 'AI Assistant' ? (
+                <MarkdownMessage content={msg.text} />
+              ) : (
+                msg.text
+              )}
             </div>
           </div>
         ))}

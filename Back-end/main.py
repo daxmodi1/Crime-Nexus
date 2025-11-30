@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from core.rag_pipeline import get_rag_chain, ingest_into_vectorstore, get_vectorstore
+from core.rag_pipeline import get_rag_chain, ingest_into_vectorstore, get_vectorstore, sanitize_collection_name
 from core.ingestion import load_and_split_document, extract_zip_file, is_supported_file, SUPPORTED_EXTENSIONS
 from core.models import EvidenceMetadata
 from utils.session_handler import (
@@ -21,6 +21,7 @@ from utils.session_handler import (
     add_message_to_session,
     add_file_to_session,
     file_exists_in_session,
+    delete_session,
 )
 from config.settings import settings
 
@@ -474,20 +475,40 @@ async def get_session_messages(session_id: str):
 # --- Utility Endpoints ---
 
 @app.delete("/sessions/{session_id}")
-async def delete_session(session_id: str):
+async def delete_session_endpoint(session_id: str):
     """Delete a session and all associated data."""
     session = load_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
-    # Delete uploaded files
+    # Delete uploaded files from disk
     session_upload_dir = os.path.join(UPLOAD_DIR, session_id)
     if os.path.exists(session_upload_dir):
         shutil.rmtree(session_upload_dir)
     
-    # Note: You may want to add session deletion from SQLite and ChromaDB
-    # For now, returning success
-    return {"message": "Session deleted", "session_id": session_id}
+    # Delete from ChromaDB vector store
+    try:
+        from chromadb import Client
+        from chromadb.config import Settings
+        import chromadb
+        
+        client = chromadb.PersistentClient(path=settings.CHROMA_DB_PATH)
+        collection_name = sanitize_collection_name(session_id)
+        
+        # Try to delete the collection
+        try:
+            client.delete_collection(name=collection_name)
+        except Exception as e:
+            print(f"Could not delete ChromaDB collection: {e}")
+    except Exception as e:
+        print(f"ChromaDB cleanup error: {e}")
+    
+    # Delete from SQLite database
+    deleted = delete_session(session_id)
+    if not deleted:
+        raise HTTPException(status_code=500, detail="Failed to delete session from database")
+    
+    return {"message": "Session deleted successfully", "session_id": session_id}
 
 
 @app.get("/sessions/{session_id}/search")

@@ -1,7 +1,22 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { FolderOpen, Dna, Briefcase, Trash2 } from 'lucide-react';
 
 const LandingView = ({ savedCases, onUpload, onOpenCase, onDeleteCase }) => {
+  const fileInputRef = useRef(null);
+
+  const handleBoxClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      onUpload(Array.from(files));
+    }
+    // Reset so the same file can be selected again
+    e.target.value = '';
+  };
+
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans">
       {/* Background Decor */}
@@ -27,15 +42,23 @@ const LandingView = ({ savedCases, onUpload, onOpenCase, onDeleteCase }) => {
           {/* Upload Section */}
           <div 
             className="w-full h-80 border-2 border-dashed border-zinc-800 rounded-3xl flex flex-col items-center justify-center gap-4 bg-zinc-900/20 hover:bg-zinc-900/40 hover:border-cyan-500/50 transition-all cursor-pointer group backdrop-blur-sm relative overflow-hidden"
-            onClick={onUpload}
+            onClick={handleBoxClick}
           >
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              multiple
+              accept=".pdf,.docx,.pptx,.doc,.ppt,.rtf,.txt,.csv,.json,.log,.zip"
+              className="hidden"
+            />
             <div className="absolute inset-0 bg-linear-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"/>
             <div className="p-4 rounded-full bg-zinc-800 group-hover:scale-110 transition-transform duration-300 relative z-10">
               <FolderOpen size={32} className="text-zinc-400 group-hover:text-cyan-400" />
             </div>
             <div className="text-center relative z-10">
               <p className="text-zinc-200 font-medium text-lg">New Investigation</p>
-              <p className="text-zinc-500 text-sm mt-1">Load Case Folder / Evidence Dump</p>
+              <p className="text-zinc-500 text-sm mt-1">Select Evidence Files (PDF, DOCX, PPTX, ZIP...)</p>
             </div>
           </div>
 

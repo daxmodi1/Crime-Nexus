@@ -117,12 +117,20 @@ def get_rag_chain(session_id: str):
     """Creates a QA chain bound to the specific session's data."""
     llm = ChatGroq(
         model_name="llama-3.3-70b-versatile",
-        temperature=0.5,
+        temperature=0.3,  # Lower temperature for more focused responses
         api_key=settings.GROQ_API_KEY
     )
     
     vectorstore = get_vectorstore(session_id)
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+    # Use MMR (Maximal Marginal Relevance) for diverse, relevant results
+    retriever = vectorstore.as_retriever(
+        search_type="mmr",  # MMR reduces redundancy
+        search_kwargs={
+            "k": getattr(settings, 'TOP_K_RETRIEVAL', 7),  # More docs for better recall
+            "fetch_k": 15,  # Fetch more candidates for MMR to select from
+            "lambda_mult": 0.7  # Balance relevance (1.0) vs diversity (0.0)
+        }
+    )
     
     prompt = PromptTemplate(
         template=FORENSICS_PROMPT_TEMPLATE,

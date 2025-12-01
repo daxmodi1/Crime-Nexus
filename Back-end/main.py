@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from core.rag_pipeline import get_rag_chain, ingest_into_vectorstore, get_vectorstore, sanitize_collection_name
 from core.ingestion import load_and_split_document, extract_zip_file, is_supported_file, SUPPORTED_EXTENSIONS
 from core.models import EvidenceMetadata
+from core.timeline_extractor import extract_timeline_from_session
 from utils.session_handler import (
     get_all_sessions,
     create_new_session,
@@ -636,6 +637,96 @@ async def get_session_graph(session_id: str):
         "total_nodes": len(graph_data.get("nodes", [])),
         "total_edges": len(graph_data.get("edges", []))
     }
+
+
+# --- Timeline Reconstruction ---
+
+@app.post("/sessions/{session_id}/extract-timeline")
+async def extract_timeline(session_id: str):
+    """
+    Extract timeline events from all documents in the session.
+    Uses LLM to identify temporal events directly from document content.
+    """
+    session = load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    try:
+        print(f"[API] Extracting timeline for session: {session_id}")
+        
+        result = extract_timeline_from_session(session_id, UPLOAD_DIR)
+        
+        if not result.get("timeline"):
+            return {
+                "success": True,
+                "message": "No timeline events found in documents",
+                "timeline": [],
+                "total_events": 0
+            }
+        
+        # Store timeline in session for caching
+        session["timeline_data"] = result
+        save_session(session_id, session)
+        
+        return {
+            "success": True,
+            "message": result.get("message", "Timeline extracted"),
+            "timeline": result.get("timeline", []),
+            "total_events": result.get("total_events", 0),
+            "files_processed": result.get("files_processed", 0)
+        }
+    except Exception as e:
+        print(f"Timeline extraction error: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "message": str(e),
+            "timeline": [],
+            "total_events": 0
+        }
+
+
+@app.get("/sessions/{session_id}/timeline")
+async def get_session_timeline(session_id: str):
+    """Get the extracted timeline for a session (cached or extract new)"""
+    session = load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Check for cached timeline
+    timeline_data = session.get("timeline_data")
+    
+    if timeline_data and timeline_data.get("timeline"):
+        return {
+            "session_id": session_id,
+            "timeline": timeline_data.get("timeline", []),
+            "total_events": timeline_data.get("total_events", 0),
+            "cached": True
+        }
+    
+    # No cached timeline - extract now
+    try:
+        result = extract_timeline_from_session(session_id, UPLOAD_DIR)
+        
+        # Cache the result
+        session["timeline_data"] = result
+        save_session(session_id, session)
+        
+        return {
+            "session_id": session_id,
+            "timeline": result.get("timeline", []),
+            "total_events": result.get("total_events", 0),
+            "cached": False
+        }
+    except Exception as e:
+        print(f"Timeline extraction error: {e}")
+        return {
+            "session_id": session_id,
+            "timeline": [],
+            "total_events": 0,
+            "error": str(e)
+        }
 
 
 # --- Run with Uvicorn ---

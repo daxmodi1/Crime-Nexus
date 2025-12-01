@@ -2,7 +2,7 @@
 User Profiling Module - Extracts entities and relationships from documents
 Uses LLMGraphTransformer with documents directly from ingestion.py loaders
 """
-
+''
 import os
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
@@ -71,14 +71,16 @@ class UserProfilingEngine:
         self.llm = ChatGroq(
             model_name="llama-3.3-70b-versatile",
             temperature=0,
-            api_key=settings.GROQ_API_KEY
+            api_key=settings.GROQ_API_KEY,
+            max_retries=3  # Retry on failures
         )
         self.graph_transformer = LLMGraphTransformer(
             llm=self.llm,
             allowed_nodes=self.ALLOWED_NODES,
             allowed_relationships=self.ALLOWED_RELATIONSHIPS,
             node_properties=["description"],
-            relationship_properties=["description"]
+            relationship_properties=["description"],
+            strict_mode=False  # More lenient extraction
         )
     
     def extract_from_documents(self, documents: List[Document]) -> Dict[str, Any]:
@@ -260,11 +262,16 @@ def extract_graph_from_session_files(session_id: str, upload_dir: str) -> Dict[s
     # Limit content size per document to avoid token limits
     processed_docs = []
     for doc in all_documents:
-        if len(doc.page_content) > 15000:
-            # Truncate very long documents
-            doc.page_content = doc.page_content[:15000]
-        if doc.page_content.strip():  # Only include non-empty docs
-            processed_docs.append(doc)
+        content = doc.page_content.strip()
+        if not content:
+            continue
+        # Truncate very long documents
+        if len(content) > 12000:
+            doc.page_content = content[:12000]
+        processed_docs.append(doc)
+    
+    if not processed_docs:
+        return {"nodes": [], "edges": [], "message": "No valid document content found"}
     
     print(f"[UserProfiling] Processing {len(processed_docs)} documents for session {session_id}")
     

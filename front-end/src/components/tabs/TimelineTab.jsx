@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Filter, RefreshCw, Clock, AlertCircle } from 'lucide-react';
+import { FileText, Filter, RefreshCw, Clock, AlertCircle, Zap } from 'lucide-react';
 
 const API_BASE = 'http://localhost:8000';
 
 const TimelineTab = ({ sessionId }) => {
   const [timeline, setTimeline] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState(null);
+  const [stats, setStats] = useState({ total: 0, filesProcessed: 0 });
 
+  // Fetch cached timeline on load
   const fetchTimeline = async () => {
     if (!sessionId) {
       setError('No session available');
@@ -25,7 +28,6 @@ const TimelineTab = ({ sessionId }) => {
       const data = await response.json();
 
       if (data.timeline && data.timeline.length > 0) {
-        // Transform API data to match our UI format
         const formattedTimeline = data.timeline.map((event, idx) => ({
           id: idx + 1,
           timestamp: event.timestamp || 'Unknown',
@@ -33,41 +35,100 @@ const TimelineTab = ({ sessionId }) => {
           type: event.type || 'info',
           sourceFile: event.source_file || 'Unknown',
           actors: event.actors || [],
-          artifacts: event.artifacts || []
+          artifacts: event.artifacts || [],
+          confidence: event.confidence || 'medium'
         }));
         setTimeline(formattedTimeline);
+        setStats({ 
+          total: data.total_events || formattedTimeline.length,
+          filesProcessed: data.files_processed || 0
+        });
       } else {
         setTimeline([]);
+        setStats({ total: 0, filesProcessed: 0 });
       }
     } catch (err) {
       console.error('Timeline fetch error:', err);
-      setError('Timeline reconstruction not yet available. Use the AI Assistant to analyze temporal events in your evidence.');
       setTimeline([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Empty state - no data initially
+  // Extract new timeline from documents
+  const extractTimeline = async () => {
+    if (!sessionId) return;
+
+    setExtracting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${API_BASE}/sessions/${sessionId}/extract-timeline`, {
+        method: 'POST'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to extract timeline');
+      }
+      
+      const data = await response.json();
+
+      if (data.success && data.timeline && data.timeline.length > 0) {
+        const formattedTimeline = data.timeline.map((event, idx) => ({
+          id: idx + 1,
+          timestamp: event.timestamp || 'Unknown',
+          event: event.event,
+          type: event.type || 'info',
+          sourceFile: event.source_file || 'Unknown',
+          actors: event.actors || [],
+          artifacts: event.artifacts || [],
+          confidence: event.confidence || 'medium'
+        }));
+        setTimeline(formattedTimeline);
+        setStats({ 
+          total: data.total_events || formattedTimeline.length,
+          filesProcessed: data.files_processed || 0
+        });
+      } else if (data.message) {
+        setError(data.message);
+        setTimeline([]);
+      }
+    } catch (err) {
+      console.error('Timeline extraction error:', err);
+      setError('Failed to extract timeline from documents');
+    } finally {
+      setExtracting(false);
+    }
+  };
+
   useEffect(() => {
-    setTimeline([]);
+    if (sessionId) {
+      fetchTimeline();
+    }
   }, [sessionId]);
 
   // Show empty state when no timeline data
-  if (timeline.length === 0 && !loading && !error) {
+  if (timeline.length === 0 && !loading && !extracting) {
     return (
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <h3 className="text-sm font-mono text-zinc-500">INCIDENT LOG (LOCAL TIME)</h3>
           <button 
-            onClick={fetchTimeline}
-            disabled={loading || !sessionId}
+            onClick={extractTimeline}
+            disabled={extracting || !sessionId}
             className="text-xs bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 px-3 py-1 rounded border border-cyan-500/30 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Clock size={12} />
-            Reconstruct Timeline
+            {extracting ? <RefreshCw size={12} className="animate-spin" /> : <Zap size={12} />}
+            {extracting ? 'Extracting...' : 'Extract Timeline from Evidence'}
           </button>
         </div>
+
+        {error && (
+          <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex items-center gap-2 text-yellow-400 text-sm">
+            <AlertCircle size={16} />
+            {error}
+          </div>
+        )}
         
         <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
           <div className="p-4 rounded-full bg-zinc-800/50 mb-4">
@@ -75,7 +136,7 @@ const TimelineTab = ({ sessionId }) => {
           </div>
           <h3 className="text-zinc-400 font-medium text-lg mb-2">No Timeline Events</h3>
           <p className="text-zinc-500 text-sm max-w-md">
-            Upload evidence files and click "Reconstruct Timeline" to automatically extract temporal events, or ask the AI Assistant about the sequence of events.
+            Upload evidence files and click "Extract Timeline from Evidence" to automatically identify temporal events from your documents.
           </p>
         </div>
       </div>
@@ -87,19 +148,22 @@ const TimelineTab = ({ sessionId }) => {
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <h3 className="text-sm font-mono text-zinc-500">INCIDENT LOG (LOCAL TIME)</h3>
+          <span className="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30">
+            {stats.total} events
+          </span>
         </div>
         <div className="flex gap-2">
           <button 
-            onClick={fetchTimeline}
-            disabled={loading || !sessionId}
+            onClick={extractTimeline}
+            disabled={extracting || !sessionId}
             className="text-xs bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 px-3 py-1 rounded border border-cyan-500/30 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? (
+            {extracting ? (
               <RefreshCw size={12} className="animate-spin" />
             ) : (
-              <Clock size={12} />
+              <Zap size={12} />
             )}
-            {loading ? 'Reconstructing...' : 'Reconstruct Timeline'}
+            {extracting ? 'Extracting...' : 'Re-Extract Timeline'}
           </button>
           <button className="text-xs bg-zinc-900 hover:bg-zinc-800 px-3 py-1 rounded border border-zinc-800 flex items-center gap-2">
             <Filter size={12} /> Filter Log
@@ -113,7 +177,21 @@ const TimelineTab = ({ sessionId }) => {
           {error}
         </div>
       )}
+
+      {/* Loading State */}
+      {(loading || extracting) && (
+        <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-12 flex flex-col items-center justify-center text-center min-h-[300px]">
+          <RefreshCw size={48} className="text-cyan-500 animate-spin mb-4" />
+          <h3 className="text-zinc-400 font-medium text-lg mb-2">
+            {extracting ? 'Extracting Timeline Events...' : 'Loading Timeline...'}
+          </h3>
+          <p className="text-zinc-500 text-sm">
+            {extracting ? 'Analyzing documents for temporal events using AI' : 'Fetching cached timeline data'}
+          </p>
+        </div>
+      )}
       
+      {!loading && !extracting && (
       <div className="relative">
         {/* Vertical Connector Line */}
         <div className="absolute top-3 bottom-8 w-px bg-zinc-800 
@@ -158,6 +236,14 @@ const TimelineTab = ({ sessionId }) => {
                         item.type === 'success' ? 'bg-emerald-500/10 text-emerald-400' :
                         'bg-blue-500/10 text-blue-400'}
                     `}>{item.type}</span>
+                    {/* Confidence Badge */}
+                    <span className={`text-[10px] px-2 py-0.5 rounded
+                      ${item.confidence === 'high' ? 'bg-emerald-500/10 text-emerald-400' : 
+                        item.confidence === 'medium' ? 'bg-yellow-500/10 text-yellow-400' :
+                        'bg-zinc-700/50 text-zinc-400'}
+                    `}>
+                      {item.confidence} confidence
+                    </span>
                   </div>
                   
                   <p className="text-zinc-100 font-medium text-lg mb-2">{item.event}</p>
@@ -194,6 +280,7 @@ const TimelineTab = ({ sessionId }) => {
           ))}
         </div>
       </div>
+      )}
     </div>
   );
 };

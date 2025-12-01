@@ -42,7 +42,7 @@ EVAL_QUERIES = [
 ]
 
 
-def calculate_precision_at_k(retrieved_docs: list, relevant_docs: list, k: int = 5) -> float:
+def calculate_precision_at_k(retrieved_docs: list, relevant_docs: list, k: int = 7) -> float:
     """
     Precision@K = (# of relevant docs in top-K) / K
     """
@@ -58,7 +58,7 @@ def calculate_precision_at_k(retrieved_docs: list, relevant_docs: list, k: int =
     return relevant_count / k if k > 0 else 0
 
 
-def calculate_recall_at_k(retrieved_docs: list, relevant_docs: list, k: int = 5) -> float:
+def calculate_recall_at_k(retrieved_docs: list, relevant_docs: list, k: int = 7) -> float:
     """
     Recall@K = (# of relevant docs in top-K) / (total # of relevant docs)
     """
@@ -144,16 +144,16 @@ def evaluate_rag_system(session_id: str):
         
         print(f"\nQuery {i+1}: {query}")
         
-        # Retrieve documents
+        # Retrieve documents with MMR search
         try:
-            retrieved_docs = vectorstore.similarity_search(query, k=5)
+            retrieved_docs = vectorstore.similarity_search(query, k=7)
         except Exception as e:
             print(f"  Error retrieving: {e}")
             continue
         
         # Calculate metrics
-        precision = calculate_precision_at_k(retrieved_docs, relevant_docs, k=5)
-        recall = calculate_recall_at_k(retrieved_docs, relevant_docs, k=5)
+        precision = calculate_precision_at_k(retrieved_docs, relevant_docs, k=7)
+        recall = calculate_recall_at_k(retrieved_docs, relevant_docs, k=7)
         mrr = calculate_mrr(retrieved_docs, relevant_docs)
         context_rel = calculate_context_relevance(retrieved_docs, expected_entities)
         
@@ -163,8 +163,8 @@ def evaluate_rag_system(session_id: str):
         all_context_relevance.append(context_rel)
         
         print(f"  Retrieved: {[doc.metadata.get('source', 'unknown')[:30] for doc in retrieved_docs]}")
-        print(f"  Precision@5: {precision:.2%}")
-        print(f"  Recall@5: {recall:.2%}")
+        print(f"  Precision@7: {precision:.2%}")
+        print(f"  Recall@7: {recall:.2%}")
         print(f"  MRR: {mrr:.3f}")
         print(f"  Context Relevance: {context_rel:.1f}/100")
     
@@ -182,8 +182,8 @@ def evaluate_rag_system(session_id: str):
 ┌────────────────────────────────────────────┐
 │         RAG EVALUATION RESULTS             │
 ├────────────────────────────────────────────┤
-│  Top-5 Retrieval Precision    {avg_precision*100:>6.2f}%     │
-│  Top-5 Retrieval Recall       {avg_recall*100:>6.2f}%     │
+│  Top-7 Retrieval Precision    {avg_precision*100:>6.2f}%     │
+│  Top-7 Retrieval Recall       {avg_recall*100:>6.2f}%     │
 │  Mean Reciprocal Rank (MRR)   {avg_mrr:>6.3f}      │
 │  Context Relevance Score      {avg_context_rel:>6.1f}/100   │
 └────────────────────────────────────────────┘

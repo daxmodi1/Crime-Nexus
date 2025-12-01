@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createSession, sendChatMessage, uploadFile, getSessions, deleteSession } from './utils/api';
+import { createSession, sendChatMessage, uploadFile, getSessions, deleteSession, getSessionMessages } from './utils/api';
 import LandingView from './components/views/LandingView';
 import ProcessingView from './components/views/ProcessingView';
 import DashboardView from './components/views/DashboardView';
@@ -40,15 +40,45 @@ export default function App() {
     })();
   }, []);
 
-  // Initialize chat with welcome message when case is opened
+  // Load chat messages when case is opened
   useEffect(() => {
     if (currentCase && view === 'dashboard') {
-      setMessages([{
-        id: 1,
-        sender: 'AI Assistant',
-        text: `Case **${currentCase.title}** loaded. Upload evidence files to begin analysis, then ask me questions about the case.`,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }]);
+      const sessionId = currentCase.sessionId || currentCase.id;
+      
+      // Load existing messages from database
+      (async () => {
+        try {
+          const savedMessages = await getSessionMessages(sessionId);
+          
+          if (savedMessages && savedMessages.length > 0) {
+            // Convert backend format to frontend format
+            const formattedMessages = savedMessages.map((msg, idx) => ({
+              id: idx + 1,
+              sender: msg.role === 'user' ? 'You' : 'AI Assistant',
+              text: msg.content,
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }));
+            setMessages(formattedMessages);
+          } else {
+            // No saved messages - show welcome message
+            setMessages([{
+              id: 1,
+              sender: 'AI Assistant',
+              text: `Case **${currentCase.title}** loaded. Upload evidence files to begin analysis, then ask me questions about the case.`,
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }]);
+          }
+        } catch (err) {
+          console.error('Could not load messages:', err);
+          // Fallback to welcome message
+          setMessages([{
+            id: 1,
+            sender: 'AI Assistant',
+            text: `Case **${currentCase.title}** loaded. Upload evidence files to begin analysis, then ask me questions about the case.`,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }]);
+        }
+      })();
     }
   }, [currentCase?.id, view]);
 

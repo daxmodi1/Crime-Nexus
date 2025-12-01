@@ -623,19 +623,24 @@ async def extract_entities(session_id: str):
 
 @app.get("/sessions/{session_id}/graph")
 async def get_session_graph(session_id: str):
-    """Get the extracted knowledge graph for a session"""
+    """Get the extracted knowledge graph for a session (returns cached data only)"""
     session = load_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
     graph_data = session.get("graph_data", {"nodes": [], "edges": []})
     
+    has_data = len(graph_data.get("nodes", [])) > 0
+    if has_data:
+        print(f"[API] Returning cached graph for session: {session_id}")
+    
     return {
         "session_id": session_id,
         "nodes": graph_data.get("nodes", []),
         "edges": graph_data.get("edges", []),
         "total_nodes": len(graph_data.get("nodes", [])),
-        "total_edges": len(graph_data.get("edges", []))
+        "total_edges": len(graph_data.get("edges", [])),
+        "cached": has_data
     }
 
 
@@ -689,15 +694,16 @@ async def extract_timeline(session_id: str):
 
 @app.get("/sessions/{session_id}/timeline")
 async def get_session_timeline(session_id: str):
-    """Get the extracted timeline for a session (cached or extract new)"""
+    """Get the extracted timeline for a session (returns cached data only)"""
     session = load_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
-    # Check for cached timeline
-    timeline_data = session.get("timeline_data")
+    # Return cached timeline if available
+    timeline_data = session.get("timeline_data", {})
     
     if timeline_data and timeline_data.get("timeline"):
+        print(f"[API] Returning cached timeline for session: {session_id}")
         return {
             "session_id": session_id,
             "timeline": timeline_data.get("timeline", []),
@@ -705,28 +711,14 @@ async def get_session_timeline(session_id: str):
             "cached": True
         }
     
-    # No cached timeline - extract now
-    try:
-        result = extract_timeline_from_session(session_id, UPLOAD_DIR)
-        
-        # Cache the result
-        session["timeline_data"] = result
-        save_session(session_id, session)
-        
-        return {
-            "session_id": session_id,
-            "timeline": result.get("timeline", []),
-            "total_events": result.get("total_events", 0),
-            "cached": False
-        }
-    except Exception as e:
-        print(f"Timeline extraction error: {e}")
-        return {
-            "session_id": session_id,
-            "timeline": [],
-            "total_events": 0,
-            "error": str(e)
-        }
+    # No cached timeline - return empty (user must click Extract button)
+    return {
+        "session_id": session_id,
+        "timeline": [],
+        "total_events": 0,
+        "cached": False,
+        "message": "No timeline extracted yet. Click 'Extract Timeline' to generate."
+    }
 
 
 # --- Run with Uvicorn ---

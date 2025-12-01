@@ -142,7 +142,7 @@ def get_rag_chain(session_id: str):
         temperature=0.5
     )
     qa_chain = RetrievalQA.from_chain_type(
-        llm=llm_2,
+        llm=llm,
         chain_type="stuff",
         retriever=retriever,
         return_source_documents=True,

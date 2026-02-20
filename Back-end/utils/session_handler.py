@@ -38,6 +38,12 @@ def _init_database():
         cursor.execute('ALTER TABLE sessions ADD COLUMN timeline_data TEXT DEFAULT NULL')
     except sqlite3.OperationalError:
         pass  # Column already exists
+
+    # Add anomaly_data column if it doesn't exist
+    try:
+        cursor.execute('ALTER TABLE sessions ADD COLUMN anomaly_data TEXT DEFAULT NULL')
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     
     # Messages table
     cursor.execute('''
@@ -164,7 +170,15 @@ def load_session(session_id: str) -> Optional[Dict]:
             timeline_data = json.loads(session_row["timeline_data"])
     except (json.JSONDecodeError, KeyError, TypeError):
         pass
-    
+
+    # Parse anomaly_data from JSON if present
+    anomaly_data = {}
+    try:
+        if "anomaly_data" in session_row.keys() and session_row["anomaly_data"]:
+            anomaly_data = json.loads(session_row["anomaly_data"])
+    except (json.JSONDecodeError, KeyError, TypeError):
+        pass
+
     return {
         "id": session_row["id"],
         "title": session_row["title"],
@@ -172,32 +186,45 @@ def load_session(session_id: str) -> Optional[Dict]:
         "messages": messages,
         "files": files,
         "graph_data": graph_data,
-        "timeline_data": timeline_data
+        "timeline_data": timeline_data,
+        "anomaly_data": anomaly_data,
     }
 
 def save_session(session_id: str, data: Dict):
-    """Updates session data including title, graph_data, and timeline_data."""
+    """Updates session data including title, graph_data, timeline_data, and anomaly_data."""
     conn = _get_connection()
     cursor = conn.cursor()
-    
+
     # Serialize graph_data to JSON if present
     graph_data_json = None
     if "graph_data" in data:
         graph_data_json = json.dumps(data["graph_data"])
-    
+
     # Serialize timeline_data to JSON if present
     timeline_data_json = None
     if "timeline_data" in data:
         timeline_data_json = json.dumps(data["timeline_data"])
-    
+
+    # Serialize anomaly_data to JSON if present
+    anomaly_data_json = None
+    if "anomaly_data" in data:
+        anomaly_data_json = json.dumps(data["anomaly_data"])
+
     cursor.execute('''
-        UPDATE sessions 
-        SET title = ?, 
-            graph_data = COALESCE(?, graph_data),
-            timeline_data = COALESCE(?, timeline_data)
+        UPDATE sessions
+        SET title = ?,
+            graph_data    = COALESCE(?, graph_data),
+            timeline_data = COALESCE(?, timeline_data),
+            anomaly_data  = COALESCE(?, anomaly_data)
         WHERE id = ?
-    ''', (data.get("title", "Untitled Case"), graph_data_json, timeline_data_json, session_id))
-    
+    ''', (
+        data.get("title", "Untitled Case"),
+        graph_data_json,
+        timeline_data_json,
+        anomaly_data_json,
+        session_id,
+    ))
+
     conn.commit()
     conn.close()
 

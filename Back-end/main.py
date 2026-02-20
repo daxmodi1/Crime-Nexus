@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import List, Optional
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+from fastapi import FastAPI, Request, UploadFile, File, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -82,10 +82,36 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Global exception handler — ensures CORS headers are present even on unhandled 500s
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    origin = request.headers.get("origin", "")
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+    cors_origin = origin if origin in allowed_origins else ""
+    headers = {"Access-Control-Allow-Credentials": "true"}
+    if cors_origin:
+        headers["Access-Control-Allow-Origin"] = cors_origin
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal server error: {str(exc)}"},
+        headers=headers,
+    )
+
+
 # CORS middleware for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -381,21 +407,21 @@ async def process_zip_upload(
                     case_id=case_id or session_id
                 )
                 
+                # Always register the file in the session (even if content can't be parsed)
+                add_file_to_session(
+                    session_id=session_id,
+                    filename=filename,
+                    file_content=file_content,
+                    file_hash=file_hash,
+                    file_type=file_ext
+                )
+
                 # Load and split document
                 chunks = load_and_split_document(extracted_path, metadata)
                 
                 if chunks:
                     # Ingest into vector store
                     ingest_into_vectorstore(session_id, chunks)
-                    
-                    # Store file reference
-                    add_file_to_session(
-                        session_id=session_id,
-                        filename=filename,
-                        file_content=file_content,
-                        file_hash=file_hash,
-                        file_type=file_ext
-                    )
                     
                     results["files_processed"].append({
                         "filename": filename,
@@ -438,7 +464,28 @@ async def list_session_files(session_id: str):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
-    return {"session_id": session_id, "files": session.get("files", [])}
+    files = session.get("files", [])
+
+    # Fallback: if DB has no files but files exist on disk, auto-register them
+    if not files:
+        session_upload_dir = os.path.join(UPLOAD_DIR, session_id)
+        disk_files = []
+        # Check both the session dir and the 'extracted' subdirectory (from ZIP uploads)
+        for search_dir in [session_upload_dir, os.path.join(session_upload_dir, "extracted")]:
+            if os.path.isdir(search_dir):
+                for fname in os.listdir(search_dir):
+                    fpath = os.path.join(search_dir, fname)
+                    if os.path.isfile(fpath):
+                        ext = os.path.splitext(fname)[1].lower()
+                        if ext in SUPPORTED_EXTENSIONS and fname not in disk_files:
+                            disk_files.append(fname)
+        # Register discovered files so future calls skip this fallback
+        for fname in disk_files:
+            add_file_to_session(session_id=session_id, filename=fname)
+        if disk_files:
+            files = disk_files
+
+    return {"session_id": session_id, "files": files}
 
 
 # --- RAG Chat ---
@@ -576,13 +623,12 @@ async def extract_entities(session_id: str):
     Uses LLMGraphTransformer with documents loaded directly from ingestion loaders.
     Does NOT use ChromaDB embeddings.
     """
-    from core.User_profiling import extract_graph_from_session_files
-    
     session = load_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
     try:
+        from core.User_profiling import extract_graph_from_session_files
         # Extract graph using ingestion loaders directly (not ChromaDB)
         result = extract_graph_from_session_files(session_id, UPLOAD_DIR)
         
@@ -718,6 +764,89 @@ async def get_session_timeline(session_id: str):
         "total_events": 0,
         "cached": False,
         "message": "No timeline extracted yet. Click 'Extract Timeline' to generate."
+    }
+
+
+# --- Anomaly Detection ---
+
+@app.post("/sessions/{session_id}/detect-anomalies")
+async def detect_anomalies(session_id: str):
+    """
+    Run LLM-based anomaly detection on all documents in the session.
+
+    Uses:
+      - Raw document content (loaded from uploaded files)
+      - Cached timeline events (from extract-timeline) for temporal pattern analysis
+      - Cached knowledge graph (from extract-entities) for relational pattern analysis
+
+    Returns document-level anomaly scores (0-100) with per-category breakdowns and
+    cited evidence flags, plus person-level aggregated scores.
+    """
+    session = load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    try:
+        from core.anomaly_detector import detect_anomalies_for_session
+
+        # Use cached graph and timeline data as context — run those first for best results
+        graph_data    = session.get("graph_data",    {"nodes": [], "edges": []})
+        timeline_data = session.get("timeline_data", {"timeline": []})
+
+        print(f"[API] Running anomaly detection for session: {session_id}")
+        print(f"[API] Context: {len(graph_data.get('nodes', []))} graph nodes, "
+              f"{len(timeline_data.get('timeline', []))} timeline events")
+
+        result = detect_anomalies_for_session(
+            session_id=session_id,
+            upload_dir=UPLOAD_DIR,
+            graph_data=graph_data,
+            timeline_data=timeline_data,
+        )
+
+        # Cache results in session
+        session["anomaly_data"] = result
+        save_session(session_id, session)
+
+        return {
+            "success": True,
+            **result,
+        }
+
+    except Exception as e:
+        print(f"[API] Anomaly detection error: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "message": str(e),
+            "document_anomalies": [],
+            "person_anomalies": [],
+        }
+
+
+@app.get("/sessions/{session_id}/anomalies")
+async def get_session_anomalies(session_id: str):
+    """Get cached anomaly detection results for a session."""
+    session = load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    anomaly_data = session.get("anomaly_data", {})
+    has_data     = bool(anomaly_data.get("document_anomalies"))
+
+    return {
+        "session_id":             session_id,
+        "document_anomalies":     anomaly_data.get("document_anomalies", []),
+        "person_anomalies":       anomaly_data.get("person_anomalies", []),
+        "total_documents":        anomaly_data.get("total_documents", 0),
+        "high_anomaly_count":     anomaly_data.get("high_anomaly_count", 0),
+        "moderate_anomaly_count": anomaly_data.get("moderate_anomaly_count", 0),
+        "cached":                 has_data,
+        "message":                anomaly_data.get(
+            "message",
+            "No anomaly detection run yet. Click 'Detect Anomalies' to analyse.",
+        ),
     }
 
 

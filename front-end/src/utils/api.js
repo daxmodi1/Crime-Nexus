@@ -85,6 +85,23 @@ async function getSessionGraph(sessionId) {
   return await res.json();
 }
 
+async function detectAnomalies(sessionId) {
+  const res = await fetch(`${BASE_URL}/sessions/${sessionId}/detect-anomalies`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || 'Anomaly detection failed');
+  }
+  return await res.json();
+}
+
+async function getAnomalies(sessionId) {
+  const res = await fetch(`${BASE_URL}/sessions/${sessionId}/anomalies`);
+  if (!res.ok) throw new Error('Failed to fetch anomaly data');
+  return await res.json();
+}
+
 export { 
   BASE_URL, 
   createSession, 
@@ -95,5 +112,7 @@ export {
   getSessionFiles, 
   deleteSession,
   extractEntities,
-  getSessionGraph
+  getSessionGraph,
+  detectAnomalies,
+  getAnomalies,
 };

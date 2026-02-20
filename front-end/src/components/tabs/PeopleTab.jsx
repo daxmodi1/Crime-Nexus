@@ -1,15 +1,35 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Users, RefreshCw, Network, List, AlertCircle, Scan } from 'lucide-react';
+import { Users, RefreshCw, Network, List, AlertCircle, Scan, AlertTriangle, ShieldAlert } from 'lucide-react';
 import ForceGraph2D from 'react-force-graph-2d';
-import { extractEntities, getSessionGraph } from '../../utils/api';
+import { extractEntities, getSessionGraph, getAnomalies } from '../../utils/api';
 
 const PeopleTab = ({ sessionId }) => {
-  const [graphData, setGraphData] = useState({ nodes: [], links: [] });
-  const [loading, setLoading] = useState(false);
-  const [extracting, setExtracting] = useState(false);
-  const [error, setError] = useState(null);
-  const [viewMode, setViewMode] = useState('graph'); // 'graph' or 'list'
+  const [graphData,        setGraphData]        = useState({ nodes: [], links: [] });
+  const [loading,          setLoading]          = useState(false);
+  const [extracting,       setExtracting]       = useState(false);
+  const [error,            setError]            = useState(null);
+  const [viewMode,         setViewMode]         = useState('graph'); // 'graph' or 'list'
+  const [personAnomalyMap, setPersonAnomalyMap] = useState({});      // personName.lower -> {score, severity}
   const graphRef = useRef();
+  const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
+  const resizeObserverRef = useRef(null);
+
+  const containerRef = useCallback(node => {
+    if (resizeObserverRef.current) {
+      resizeObserverRef.current.disconnect();
+      resizeObserverRef.current = null;
+    }
+    if (!node) return;
+    const { width, height } = node.getBoundingClientRect();
+    setContainerSize({ width, height });
+    const observer = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        setContainerSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+      }
+    });
+    observer.observe(node);
+    resizeObserverRef.current = observer;
+  }, []);
 
   const fetchGraphData = useCallback(async () => {
     if (!sessionId) return;
@@ -49,6 +69,29 @@ const PeopleTab = ({ sessionId }) => {
   useEffect(() => {
     fetchGraphData();
   }, [fetchGraphData]);
+
+  // Fetch cached anomaly data to colour nodes and decorate cards
+  useEffect(() => {
+    if (!sessionId) return;
+    setPersonAnomalyMap({});
+
+    const fetchPersonAnomalies = async () => {
+      try {
+        const data = await getAnomalies(sessionId);
+        if (data.cached && data.person_anomalies?.length > 0) {
+          const map = {};
+          data.person_anomalies.forEach(p => {
+            map[p.person_name.toLowerCase()] = { score: p.anomaly_score, severity: p.severity };
+          });
+          setPersonAnomalyMap(map);
+        }
+      } catch {
+        // silently skip — anomaly tab will show hint to run detection
+      }
+    };
+
+    fetchPersonAnomalies();
+  }, [sessionId]);
 
   const handleExtractEntities = async () => {
     if (!sessionId) return;
@@ -206,9 +249,11 @@ const PeopleTab = ({ sessionId }) => {
 
       {/* Graph View */}
       {!loading && graphData.nodes.length > 0 && viewMode === 'graph' && (
-        <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl overflow-hidden relative" style={{ height: '600px' }}>
+        <div ref={containerRef} className="bg-zinc-900/40 border border-zinc-800 rounded-xl overflow-hidden relative" style={{ height: '600px' }}>
           <ForceGraph2D
             ref={graphRef}
+            width={containerSize.width}
+            height={containerSize.height}
             graphData={graphData}
             nodeLabel={node => `${node.name}${node.description ? `\n${node.description}` : ''}`}
             nodeColor={getNodeColor}
@@ -220,21 +265,34 @@ const PeopleTab = ({ sessionId }) => {
             linkDirectionalArrowRelPos={1}
             backgroundColor="#09090b"
             nodeCanvasObject={(node, ctx, globalScale) => {
-              const label = node.name;
-              const fontSize = 12/globalScale;
+              const label      = node.name;
+              const fontSize   = 12 / globalScale;
+              const nodeRadius = node.val || 5;
               ctx.font = `${fontSize}px Sans-Serif`;
-              
+
+              // Draw anomaly glow ring for moderate / high anomaly nodes
+              const nodeAnomaly = personAnomalyMap[node.name?.toLowerCase()];
+              if (nodeAnomaly && nodeAnomaly.severity !== 'low') {
+                const ringColor = nodeAnomaly.severity === 'high'
+                  ? 'rgba(239, 68, 68, 0.55)'    // red-500 glow
+                  : 'rgba(245, 158, 11, 0.45)';   // amber-500 glow
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, nodeRadius + 5, 0, 2 * Math.PI, false);
+                ctx.fillStyle = ringColor;
+                ctx.fill();
+              }
+
               // Draw node circle
               ctx.beginPath();
-              ctx.arc(node.x, node.y, node.val || 5, 0, 2 * Math.PI, false);
+              ctx.arc(node.x, node.y, nodeRadius, 0, 2 * Math.PI, false);
               ctx.fillStyle = getNodeColor(node);
               ctx.fill();
-              
+
               // Draw label below node
-              ctx.textAlign = 'center';
+              ctx.textAlign    = 'center';
               ctx.textBaseline = 'top';
-              ctx.fillStyle = '#d4d4d8';
-              ctx.fillText(label, node.x, node.y + (node.val || 5) + 2);
+              ctx.fillStyle    = '#d4d4d8';
+              ctx.fillText(label, node.x, node.y + nodeRadius + 2);
             }}
           />
           
@@ -310,6 +368,24 @@ const PeopleTab = ({ sessionId }) => {
                 </div>
               </div>
               
+              {/* Anomaly badge for person nodes */}
+              {entity.type?.toLowerCase() === 'person' &&
+                personAnomalyMap[entity.name?.toLowerCase()] &&
+                personAnomalyMap[entity.name?.toLowerCase()].severity !== 'low' && (() => {
+                  const pa      = personAnomalyMap[entity.name.toLowerCase()];
+                  const isHigh  = pa.severity === 'high';
+                  return (
+                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded border text-xs font-mono mb-3 ${
+                      isHigh
+                        ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                        : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                    }`}>
+                      {isHigh ? <ShieldAlert size={11} /> : <AlertTriangle size={11} />}
+                      Anomaly Score: {pa.score}/100
+                    </div>
+                  );
+                })()}
+
               {entity.description && (
                 <p className="text-zinc-400 text-sm mb-3">{entity.description}</p>
               )}

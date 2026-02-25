@@ -1,7 +1,198 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Users, RefreshCw, Network, List, AlertCircle, Scan, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Users, RefreshCw, Network, List, AlertCircle, Scan, AlertTriangle, ShieldAlert, ChevronDown, ChevronUp, Flag, X, Clock, FileText } from 'lucide-react';
 import ForceGraph2D from 'react-force-graph-2d';
-import { extractEntities, getSessionGraph, getAnomalies } from '../../utils/api';
+import { extractEntities, getSessionGraph, getAnomalies, getEntityTimeline } from '../../utils/api';
+
+/* ── Severity style helpers ── */
+const severityConfig = {
+  critical: { bg: 'bg-red-500/10',    border: 'border-red-500/30',    text: 'text-red-400',    barColor: 'bg-red-500',    icon: ShieldAlert },
+  high:     { bg: 'bg-orange-500/10',  border: 'border-orange-500/30',  text: 'text-orange-400',  barColor: 'bg-orange-500',  icon: ShieldAlert },
+  moderate: { bg: 'bg-amber-500/10',   border: 'border-amber-500/30',   text: 'text-amber-400',   barColor: 'bg-amber-500',   icon: AlertTriangle },
+  low:      { bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', text: 'text-emerald-400', barColor: 'bg-emerald-500', icon: Flag },
+  normal:   { bg: 'bg-zinc-500/10',    border: 'border-zinc-700',       text: 'text-zinc-400',    barColor: 'bg-zinc-600',    icon: Flag },
+};
+
+const getSeverityStyle = (severity) => severityConfig[severity] || severityConfig.normal;
+
+
+/* ── EntityCard (list-view) ── */
+const EntityCard = ({ entity, relationships, getNodeColor, onViewTimeline, timelineData }) => {
+  const [expanded, setExpanded] = useState(false);
+  const [showTimeline, setShowTimeline] = useState(false);
+
+  const anomaly   = entity.anomaly || { score: 0, severity: 'normal', triggered_flags: [], summary: '' };
+  const style     = getSeverityStyle(anomaly.severity);
+  const IconComp  = style.icon;
+
+  const handleTimelineClick = () => {
+    if (!showTimeline && onViewTimeline) {
+      onViewTimeline(entity.name);
+    }
+    setShowTimeline(prev => !prev);
+  };
+
+  const tl = timelineData || { loading: false, error: null, events: [] };
+
+  return (
+    <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl hover:bg-zinc-900 hover:border-cyan-500/30 transition-all overflow-hidden">
+      {/* ── Top section ── */}
+      <div className="p-5 pb-3">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+              style={{ backgroundColor: getNodeColor(entity) + '30', color: getNodeColor(entity) }}
+            >
+              {entity.name?.charAt(0)?.toUpperCase() || '?'}
+            </div>
+            <div>
+              <h3 className="text-zinc-100 font-medium">{entity.name}</h3>
+              <span
+                className="text-xs px-2 py-0.5 rounded capitalize"
+                style={{ backgroundColor: getNodeColor(entity) + '20', color: getNodeColor(entity) }}
+              >
+                {entity.type || 'Unknown'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Anomaly score badge ── */}
+        <button
+          onClick={() => setExpanded(prev => !prev)}
+          className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded border text-xs font-mono cursor-pointer transition-colors ${style.bg} ${style.border} ${style.text}`}
+        >
+          <div className="flex items-center gap-1.5">
+            <IconComp size={12} />
+            <span>Anomaly: {anomaly.score}/100</span>
+            <span className="capitalize opacity-75">({anomaly.severity})</span>
+          </div>
+          {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        </button>
+
+        {/* ── Expandable anomaly details ── */}
+        {expanded && (
+          <div className={`mt-2 rounded border p-3 text-xs space-y-2 ${style.bg} ${style.border}`}>
+            {/* Score bar */}
+            <div>
+              <div className="flex justify-between text-zinc-400 mb-1">
+                <span>Score</span>
+                <span className={style.text}>{anomaly.score}%</span>
+              </div>
+              <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${style.barColor}`}
+                  style={{ width: `${anomaly.score}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Triggered flags */}
+            {anomaly.triggered_flags?.length > 0 && (
+              <div>
+                <div className="text-zinc-500 mb-1">Triggered Flags</div>
+                <ul className="space-y-1">
+                  {anomaly.triggered_flags.map((flag, i) => (
+                    <li key={i} className="flex items-start gap-1.5 text-zinc-300">
+                      <span className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${style.barColor}`} />
+                      {flag}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Summary */}
+            {anomaly.summary && (
+              <div>
+                <div className="text-zinc-500 mb-1">Summary</div>
+                <p className="text-zinc-300 leading-relaxed">{anomaly.summary}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Description ── */}
+        {entity.description && (
+          <p className="text-zinc-400 text-sm mt-3">{entity.description}</p>
+        )}
+      </div>
+
+      {/* ── Relationships ── */}
+      {relationships.length > 0 && (
+        <div className="border-t border-zinc-800 px-5 py-3">
+          <div className="text-xs text-zinc-500 mb-2">Relationships</div>
+          <div className="flex flex-wrap gap-1">
+            {relationships.map((rel, i) => (
+              <span key={i} className="text-xs bg-zinc-800 text-zinc-300 px-2 py-1 rounded">
+                {rel.relationship} → {typeof rel.target === 'string' ? rel.target : rel.target?.id}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── View Timeline button ── */}
+      <div className="border-t border-zinc-800 px-5 py-3">
+        <button
+          onClick={handleTimelineClick}
+          className="w-full text-xs flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/15 text-cyan-400 transition-colors"
+        >
+          <Clock size={12} />
+          {showTimeline ? 'Hide Timeline' : 'View Timeline'}
+        </button>
+      </div>
+
+      {/* ── Inline timeline panel ── */}
+      {showTimeline && (
+        <div className="border-t border-zinc-800 px-4 py-3 max-h-72 overflow-y-auto space-y-2 bg-zinc-950/50">
+          {tl.loading && (
+            <div className="flex items-center justify-center py-4 gap-2 text-zinc-500 text-xs">
+              <RefreshCw size={12} className="animate-spin" /> Loading timeline...
+            </div>
+          )}
+          {tl.error && (
+            <div className="text-xs text-yellow-400 text-center py-3">{tl.error}</div>
+          )}
+          {!tl.loading && !tl.error && tl.events.length === 0 && (
+            <div className="text-xs text-zinc-500 text-center py-3">No timeline events for this entity.</div>
+          )}
+          {!tl.loading && tl.events.length > 0 && (
+            <>
+              <div className="text-[10px] text-zinc-500 font-mono">{tl.events.length} event{tl.events.length !== 1 ? 's' : ''}</div>
+              {tl.events.map((item, i) => (
+                <div key={i} className="bg-zinc-900/60 border border-zinc-800 rounded-lg p-2.5 text-xs">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider
+                      ${item.type === 'critical' ? 'bg-red-500/10 text-red-400' :
+                        item.type === 'warning' ? 'bg-yellow-500/10 text-yellow-400' :
+                        item.type === 'success' ? 'bg-emerald-500/10 text-emerald-400' :
+                        'bg-blue-500/10 text-blue-400'}
+                    `}>{item.type}</span>
+                    <span className="text-[10px] font-mono text-zinc-500">{item.timestamp}</span>
+                  </div>
+                  <p className="text-zinc-200 leading-relaxed mb-1">{item.event}</p>
+                  {item.actors && item.actors.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {item.actors.map((a, j) => (
+                        <span key={j} className={`text-[10px] px-1.5 py-0.5 rounded ${
+                          a.toLowerCase() === entity.name?.toLowerCase()
+                            ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
+                            : 'bg-purple-500/10 text-purple-400'
+                        }`}>{a}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 
 const PeopleTab = ({ sessionId }) => {
   const [graphData,        setGraphData]        = useState({ nodes: [], links: [] });
@@ -13,6 +204,77 @@ const PeopleTab = ({ sessionId }) => {
   const graphRef = useRef();
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
   const resizeObserverRef = useRef(null);
+
+  // Entity timeline side-panel state (graph view)
+  const [selectedNode, setSelectedNode]           = useState(null);   // node object
+  const [entityTimeline, setEntityTimeline]       = useState([]);     // filtered events
+  const [entityTimelineLoading, setEntityTimelineLoading] = useState(false);
+  const [entityTimelineError, setEntityTimelineError]     = useState(null);
+
+  // Entity timeline state for list view – keyed by entity name
+  const [listTimelines, setListTimelines] = useState({});
+
+  // Called when user clicks a node in the graph
+  const handleNodeClick = useCallback(async (node) => {
+    if (!sessionId || !node) return;
+    setSelectedNode(node);
+    setEntityTimeline([]);
+    setEntityTimelineLoading(true);
+    setEntityTimelineError(null);
+
+    try {
+      const data = await getEntityTimeline(sessionId, node.name);
+      if (data.timeline && data.timeline.length > 0) {
+        setEntityTimeline(data.timeline.map((evt, i) => ({
+          id: i + 1,
+          timestamp: evt.timestamp || 'Unknown',
+          event: evt.event,
+          type: evt.type || 'info',
+          sourceFile: evt.source_file || 'Unknown',
+          actors: evt.actors || [],
+          artifacts: evt.artifacts || [],
+          confidence: evt.confidence || 'medium',
+        })));
+      } else {
+        setEntityTimeline([]);
+      }
+    } catch (err) {
+      console.error('Entity timeline error:', err);
+      setEntityTimelineError('Timeline not yet extracted. Generate a timeline first from the Timeline tab.');
+    } finally {
+      setEntityTimelineLoading(false);
+    }
+  }, [sessionId]);
+
+  // Called when user clicks "View Timeline" on an EntityCard in list view
+  const handleListViewTimeline = useCallback(async (entityName) => {
+    if (!sessionId || !entityName) return;
+    // Mark loading for this specific entity
+    setListTimelines(prev => ({
+      ...prev,
+      [entityName]: { loading: true, error: null, events: [] }
+    }));
+    try {
+      const data = await getEntityTimeline(sessionId, entityName);
+      const events = (data.timeline || []).map((evt, i) => ({
+        id: i + 1,
+        timestamp: evt.timestamp || 'Unknown',
+        event: evt.event,
+        type: evt.type || 'info',
+        actors: evt.actors || [],
+      }));
+      setListTimelines(prev => ({
+        ...prev,
+        [entityName]: { loading: false, error: null, events }
+      }));
+    } catch (err) {
+      console.error('List-view entity timeline error:', err);
+      setListTimelines(prev => ({
+        ...prev,
+        [entityName]: { loading: false, error: 'Timeline not yet extracted. Generate a timeline first.', events: [] }
+      }));
+    }
+  }, [sessionId]);
 
   const containerRef = useCallback(node => {
     if (resizeObserverRef.current) {
@@ -47,6 +309,7 @@ const PeopleTab = ({ sessionId }) => {
           name: n.name,
           type: n.type,
           description: n.description,
+          anomaly: n.anomaly || null,
           val: n.type === 'person' ? 10 : 6 // Size nodes by type
         }));
         
@@ -249,7 +512,13 @@ const PeopleTab = ({ sessionId }) => {
 
       {/* Graph View */}
       {!loading && graphData.nodes.length > 0 && viewMode === 'graph' && (
-        <div ref={containerRef} className="bg-zinc-900/40 border border-zinc-800 rounded-xl overflow-hidden relative" style={{ height: '600px' }}>
+        <div className="flex gap-0 relative">
+          {/* Graph container — shrinks when panel is open */}
+          <div
+            ref={containerRef}
+            className="bg-zinc-900/40 border border-zinc-800 rounded-xl overflow-hidden relative transition-all duration-300"
+            style={{ height: '600px', width: selectedNode ? '55%' : '100%' }}
+          >
           <ForceGraph2D
             ref={graphRef}
             width={containerSize.width}
@@ -258,6 +527,7 @@ const PeopleTab = ({ sessionId }) => {
             nodeLabel={node => `${node.name}${node.description ? `\n${node.description}` : ''}`}
             nodeColor={getNodeColor}
             nodeRelSize={6}
+            onNodeClick={handleNodeClick}
             linkLabel={link => link.relationship}
             linkColor={() => '#4b5563'}
             linkWidth={1.5}
@@ -270,12 +540,21 @@ const PeopleTab = ({ sessionId }) => {
               const nodeRadius = node.val || 5;
               ctx.font = `${fontSize}px Sans-Serif`;
 
-              // Draw anomaly glow ring for moderate / high anomaly nodes
-              const nodeAnomaly = personAnomalyMap[node.name?.toLowerCase()];
-              if (nodeAnomaly && nodeAnomaly.severity !== 'low') {
-                const ringColor = nodeAnomaly.severity === 'high'
-                  ? 'rgba(239, 68, 68, 0.55)'    // red-500 glow
-                  : 'rgba(245, 158, 11, 0.45)';   // amber-500 glow
+              // Selected node highlight ring
+              if (selectedNode && node.id === selectedNode.id) {
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, nodeRadius + 7, 0, 2 * Math.PI, false);
+                ctx.strokeStyle = 'rgba(34, 211, 238, 0.7)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+              }
+
+              // Draw anomaly glow ring based on entity's own anomaly score
+              const sev = node.anomaly?.severity;
+              if (sev && sev !== 'normal' && sev !== 'low') {
+                const ringColor = (sev === 'high' || sev === 'critical')
+                  ? 'rgba(239, 68, 68, 0.55)'    // red glow
+                  : 'rgba(245, 158, 11, 0.45)';   // amber glow
                 ctx.beginPath();
                 ctx.arc(node.x, node.y, nodeRadius + 5, 0, 2 * Math.PI, false);
                 ctx.fillStyle = ringColor;
@@ -293,6 +572,13 @@ const PeopleTab = ({ sessionId }) => {
               ctx.textBaseline = 'top';
               ctx.fillStyle    = '#d4d4d8';
               ctx.fillText(label, node.x, node.y + nodeRadius + 2);
+            }}
+            nodePointerAreaPaint={(node, color, ctx) => {
+              const nodeRadius = node.val || 5;
+              ctx.fillStyle = color;
+              ctx.beginPath();
+              ctx.arc(node.x, node.y, nodeRadius + 5, 0, 2 * Math.PI, false);
+              ctx.fill();
             }}
           />
           
@@ -334,78 +620,119 @@ const PeopleTab = ({ sessionId }) => {
               </div>
             </div>
           </div>
+          </div>
+
+          {/* ── Entity Timeline Side Panel ── */}
+          {selectedNode && (
+            <div className="w-[45%] bg-zinc-950 border border-zinc-800 rounded-xl ml-2 overflow-hidden flex flex-col" style={{ height: '600px' }}>
+              {/* Panel header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+                    style={{ backgroundColor: getNodeColor(selectedNode) + '30', color: getNodeColor(selectedNode) }}
+                  >
+                    {selectedNode.name?.charAt(0)?.toUpperCase() || '?'}
+                  </div>
+                  <div>
+                    <h4 className="text-zinc-100 text-sm font-medium leading-tight">{selectedNode.name}</h4>
+                    <span className="text-[10px] text-zinc-500 capitalize">{selectedNode.type} timeline</span>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedNode(null)} className="p-1 hover:bg-zinc-800 rounded text-zinc-500 hover:text-zinc-300">
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Panel body */}
+              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+                {entityTimelineLoading && (
+                  <div className="flex flex-col items-center justify-center h-full gap-3">
+                    <RefreshCw size={24} className="text-cyan-500 animate-spin" />
+                    <span className="text-zinc-500 text-xs">Loading timeline...</span>
+                  </div>
+                )}
+
+                {entityTimelineError && (
+                  <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-4">
+                    <AlertCircle size={24} className="text-yellow-500" />
+                    <span className="text-zinc-400 text-xs">{entityTimelineError}</span>
+                  </div>
+                )}
+
+                {!entityTimelineLoading && !entityTimelineError && entityTimeline.length === 0 && (
+                  <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-4">
+                    <Clock size={24} className="text-zinc-600" />
+                    <span className="text-zinc-500 text-xs">No timeline events found for {selectedNode.name}.</span>
+                  </div>
+                )}
+
+                {!entityTimelineLoading && entityTimeline.length > 0 && (
+                  <>
+                    <div className="text-[10px] text-zinc-500 font-mono mb-1">
+                      {entityTimeline.length} event{entityTimeline.length !== 1 ? 's' : ''}
+                    </div>
+                    {entityTimeline.map(item => (
+                      <div key={item.id} className="bg-zinc-900/60 border border-zinc-800 rounded-lg p-3 hover:border-cyan-500/20 transition-colors">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider
+                            ${item.type === 'critical' ? 'bg-red-500/10 text-red-400' :
+                              item.type === 'warning' ? 'bg-yellow-500/10 text-yellow-400' :
+                              item.type === 'success' ? 'bg-emerald-500/10 text-emerald-400' :
+                              'bg-blue-500/10 text-blue-400'}
+                          `}>{item.type}</span>
+                          <span className="text-[10px] font-mono text-zinc-500">{item.timestamp}</span>
+                        </div>
+                        <p className="text-zinc-200 text-xs leading-relaxed mb-1.5">{item.event}</p>
+
+                        {item.actors.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-1.5">
+                            {item.actors.map((a, i) => (
+                              <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                a.toLowerCase() === selectedNode.name?.toLowerCase()
+                                  ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
+                                  : 'bg-purple-500/10 text-purple-400'
+                              }`}>{a}</span>
+                            ))}
+                          </div>
+                        )}
+
+                        {item.artifacts.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-1.5">
+                            {item.artifacts.map((a, i) => (
+                              <span key={i} className="text-[10px] font-mono bg-zinc-800 text-cyan-400 px-1.5 py-0.5 rounded">{a}</span>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-1 text-[10px] text-zinc-500">
+                          <FileText size={10} className="text-cyan-600" />
+                          <span className="font-mono">{item.sourceFile}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* List View - Shows all entities from graph */}
+      {/* List View - Shows all entities from graph with anomaly details */}
       {!loading && graphData.nodes.length > 0 && viewMode === 'list' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {graphData.nodes.map((entity, idx) => (
-            <div 
-              key={idx} 
-              className="bg-zinc-900/40 border border-zinc-800 p-5 rounded-xl hover:bg-zinc-900 hover:border-cyan-500/30 transition-all"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div 
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
-                    style={{ backgroundColor: getNodeColor(entity) + '30', color: getNodeColor(entity) }}
-                  >
-                    {entity.name?.charAt(0)?.toUpperCase() || '?'}
-                  </div>
-                  <div>
-                    <h3 className="text-zinc-100 font-medium">{entity.name}</h3>
-                    <span 
-                      className="text-xs px-2 py-0.5 rounded capitalize"
-                      style={{ 
-                        backgroundColor: getNodeColor(entity) + '20',
-                        color: getNodeColor(entity)
-                      }}
-                    >
-                      {entity.type || 'Unknown'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Anomaly badge for person nodes */}
-              {entity.type?.toLowerCase() === 'person' &&
-                personAnomalyMap[entity.name?.toLowerCase()] &&
-                personAnomalyMap[entity.name?.toLowerCase()].severity !== 'low' && (() => {
-                  const pa      = personAnomalyMap[entity.name.toLowerCase()];
-                  const isHigh  = pa.severity === 'high';
-                  return (
-                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded border text-xs font-mono mb-3 ${
-                      isHigh
-                        ? 'bg-red-500/10 border-red-500/30 text-red-400'
-                        : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                    }`}>
-                      {isHigh ? <ShieldAlert size={11} /> : <AlertTriangle size={11} />}
-                      Anomaly Score: {pa.score}/100
-                    </div>
-                  );
-                })()}
-
-              {entity.description && (
-                <p className="text-zinc-400 text-sm mb-3">{entity.description}</p>
+            <EntityCard
+              key={idx}
+              entity={entity}
+              relationships={graphData.links.filter(
+                l => l.source === entity.id || l.source?.id === entity.id
               )}
-              
-              {/* Show relationships for this entity */}
-              {graphData.links.filter(l => l.source === entity.id || l.source?.id === entity.id).length > 0 && (
-                <div className="border-t border-zinc-800 pt-3 mt-3">
-                  <div className="text-xs text-zinc-500 mb-2">Relationships</div>
-                  <div className="flex flex-wrap gap-1">
-                    {graphData.links
-                      .filter(l => l.source === entity.id || l.source?.id === entity.id)
-                      .map((rel, i) => (
-                        <span key={i} className="text-xs bg-zinc-800 text-zinc-300 px-2 py-1 rounded">
-                          {rel.relationship} → {typeof rel.target === 'string' ? rel.target : rel.target?.id}
-                        </span>
-                      ))}
-                  </div>
-                </div>
-              )}
-            </div>
+              getNodeColor={getNodeColor}
+              onViewTimeline={handleListViewTimeline}
+              timelineData={listTimelines[entity.name]}
+            />
           ))}
         </div>
       )}

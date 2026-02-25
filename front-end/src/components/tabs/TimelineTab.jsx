@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Filter, RefreshCw, Clock, AlertCircle, Zap } from 'lucide-react';
+import { FileText, Filter, RefreshCw, Clock, AlertCircle, Zap, Users, X } from 'lucide-react';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -9,6 +9,16 @@ const TimelineTab = ({ sessionId }) => {
   const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState({ total: 0, filesProcessed: 0 });
+  const [infoBanner, setInfoBanner] = useState(null);            // info text about auto-extraction
+  const [filterEntity, setFilterEntity] = useState(null);        // currently filtered entity name
+  const [knownActors, setKnownActors] = useState([]);            // unique actors across all events
+
+  // Derive unique actors whenever full timeline changes
+  const deriveActors = (events) => {
+    const set = new Set();
+    events.forEach(e => (e.actors || []).forEach(a => set.add(a)));
+    setKnownActors([...set].sort());
+  };
 
   // Fetch cached timeline on load
   const fetchTimeline = async () => {
@@ -21,7 +31,10 @@ const TimelineTab = ({ sessionId }) => {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/sessions/${sessionId}/timeline`);
+      const url = filterEntity
+        ? `${API_BASE}/sessions/${sessionId}/timeline?entity=${encodeURIComponent(filterEntity)}`
+        : `${API_BASE}/sessions/${sessionId}/timeline`;
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error('Timeline endpoint not available');
       }
@@ -43,6 +56,8 @@ const TimelineTab = ({ sessionId }) => {
           total: data.total_events || formattedTimeline.length,
           filesProcessed: data.files_processed || 0
         });
+        // Only rebuild actor list from the unfiltered set
+        if (!filterEntity) deriveActors(formattedTimeline);
       } else {
         setTimeline([]);
         setStats({ total: 0, filesProcessed: 0 });
@@ -61,6 +76,8 @@ const TimelineTab = ({ sessionId }) => {
 
     setExtracting(true);
     setError(null);
+    setInfoBanner(null);
+    setFilterEntity(null); // reset filter on fresh extraction
 
     try {
       const response = await fetch(`${API_BASE}/sessions/${sessionId}/extract-timeline`, {
@@ -72,6 +89,11 @@ const TimelineTab = ({ sessionId }) => {
       }
       
       const data = await response.json();
+
+      // Show info banner if entities were auto-extracted
+      if (data.entities_auto_extracted) {
+        setInfoBanner('Entity graph was automatically generated to provide context for timeline extraction.');
+      }
 
       if (data.success && data.timeline && data.timeline.length > 0) {
         const formattedTimeline = data.timeline.map((event, idx) => ({
@@ -89,6 +111,7 @@ const TimelineTab = ({ sessionId }) => {
           total: data.total_events || formattedTimeline.length,
           filesProcessed: data.files_processed || 0
         });
+        deriveActors(formattedTimeline);
       } else if (data.message) {
         setError(data.message);
         setTimeline([]);
@@ -105,7 +128,7 @@ const TimelineTab = ({ sessionId }) => {
     if (sessionId) {
       fetchTimeline();
     }
-  }, [sessionId]);
+  }, [sessionId, filterEntity]);
 
   // Show empty state when no timeline data
   if (timeline.length === 0 && !loading && !extracting) {
@@ -145,12 +168,22 @@ const TimelineTab = ({ sessionId }) => {
 
   return (
     <div className="max-w-4xl mx-auto pl-4 md:pl-0">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <h3 className="text-sm font-mono text-zinc-500">INCIDENT LOG (LOCAL TIME)</h3>
+          <h3 className="text-sm font-mono text-zinc-500">
+            {filterEntity ? `TIMELINE \u2014 ${filterEntity}` : 'INCIDENT LOG (LOCAL TIME)'}
+          </h3>
           <span className="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30">
             {stats.total} events
           </span>
+          {filterEntity && (
+            <button
+              onClick={() => setFilterEntity(null)}
+              className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded border border-purple-500/30 flex items-center gap-1 hover:bg-purple-500/20"
+            >
+              <X size={10} /> Clear filter
+            </button>
+          )}
         </div>
         <div className="flex gap-2">
           <button 
@@ -165,11 +198,34 @@ const TimelineTab = ({ sessionId }) => {
             )}
             {extracting ? 'Extracting...' : 'Re-Extract Timeline'}
           </button>
-          <button className="text-xs bg-zinc-900 hover:bg-zinc-800 px-3 py-1 rounded border border-zinc-800 flex items-center gap-2">
-            <Filter size={12} /> Filter Log
-          </button>
+          {/* Entity filter dropdown */}
+          {knownActors.length > 0 && (
+            <select
+              value={filterEntity || ''}
+              onChange={e => setFilterEntity(e.target.value || null)}
+              className="text-xs bg-zinc-900 hover:bg-zinc-800 px-3 py-1 rounded border border-zinc-800 text-zinc-300 appearance-none cursor-pointer"
+            >
+              <option value="">All Entities</option>
+              {knownActors.map(actor => (
+                <option key={actor} value={actor}>{actor}</option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
+
+      {/* Info banner (e.g., entities auto-extracted) */}
+      {infoBanner && (
+        <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg flex items-center justify-between text-blue-400 text-sm">
+          <div className="flex items-center gap-2">
+            <Users size={16} />
+            {infoBanner}
+          </div>
+          <button onClick={() => setInfoBanner(null)} className="hover:text-blue-300">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex items-center gap-2 text-yellow-400 text-sm">

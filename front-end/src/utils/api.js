@@ -102,6 +102,14 @@ async function getAnomalies(sessionId) {
   return await res.json();
 }
 
+async function getEntityTimeline(sessionId, entityName) {
+  const res = await fetch(
+    `${BASE_URL}/sessions/${sessionId}/timeline?entity=${encodeURIComponent(entityName)}`
+  );
+  if (!res.ok) throw new Error('Failed to fetch entity timeline');
+  return await res.json();
+}
+
 export { 
   BASE_URL, 
   createSession, 
@@ -115,4 +123,5 @@ export {
   getSessionGraph,
   detectAnomalies,
   getAnomalies,
+  getEntityTimeline,
 };

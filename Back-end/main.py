@@ -697,6 +697,8 @@ async def extract_timeline(session_id: str):
     """
     Extract timeline events from all documents in the session.
     Uses LLM to identify temporal events directly from document content.
+    Automatically extracts entities first if not already available,
+    so the LLM can use canonical entity names in the actors field.
     """
     session = load_session(session_id)
     if not session:
@@ -705,14 +707,35 @@ async def extract_timeline(session_id: str):
     try:
         print(f"[API] Extracting timeline for session: {session_id}")
         
-        result = extract_timeline_from_session(session_id, UPLOAD_DIR)
+        # --- Ensure entities are extracted first ---
+        graph_data = session.get("graph_data", {})
+        entities = graph_data.get("nodes", [])
+        entities_auto_extracted = False
+        
+        if not entities:
+            print(f"[API] No entities found — auto-extracting entities before timeline...")
+            from core.User_profiling import extract_graph_from_session_files
+            graph_result = extract_graph_from_session_files(session_id, UPLOAD_DIR)
+            
+            if graph_result.get("nodes"):
+                entities = graph_result["nodes"]
+                session["graph_data"] = graph_result
+                save_session(session_id, session)
+                entities_auto_extracted = True
+                print(f"[API] Auto-extracted {len(entities)} entities")
+            else:
+                print(f"[API] Entity extraction returned no nodes, proceeding without entity context")
+        
+        # --- Extract timeline with entity context ---
+        result = extract_timeline_from_session(session_id, UPLOAD_DIR, entities=entities)
         
         if not result.get("timeline"):
             return {
                 "success": True,
                 "message": "No timeline events found in documents",
                 "timeline": [],
-                "total_events": 0
+                "total_events": 0,
+                "entities_auto_extracted": entities_auto_extracted,
             }
         
         # Store timeline in session for caching
@@ -724,7 +747,8 @@ async def extract_timeline(session_id: str):
             "message": result.get("message", "Timeline extracted"),
             "timeline": result.get("timeline", []),
             "total_events": result.get("total_events", 0),
-            "files_processed": result.get("files_processed", 0)
+            "files_processed": result.get("files_processed", 0),
+            "entities_auto_extracted": entities_auto_extracted,
         }
     except Exception as e:
         print(f"Timeline extraction error: {e}")
@@ -739,8 +763,12 @@ async def extract_timeline(session_id: str):
 
 
 @app.get("/sessions/{session_id}/timeline")
-async def get_session_timeline(session_id: str):
-    """Get the extracted timeline for a session (returns cached data only)"""
+async def get_session_timeline(session_id: str, entity: Optional[str] = None):
+    """Get the extracted timeline for a session (returns cached data only).
+    
+    Query params:
+        entity: Optional entity name to filter timeline events by actor.
+    """
     session = load_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -750,11 +778,43 @@ async def get_session_timeline(session_id: str):
     
     if timeline_data and timeline_data.get("timeline"):
         print(f"[API] Returning cached timeline for session: {session_id}")
+        timeline = timeline_data.get("timeline", [])
+        
+        # Filter by entity name if requested
+        if entity:
+            entity_lower = entity.strip().lower()
+            entity_words = set(entity_lower.split())
+            print(f"[API] Filtering timeline for entity: '{entity}' (words: {entity_words})")
+            
+            # Collect all unique actor names for debugging
+            all_actors = set()
+            for evt in timeline:
+                for a in evt.get("actors", []):
+                    all_actors.add(a)
+            print(f"[API] All actors in timeline: {all_actors}")
+            
+            filtered = []
+            for evt in timeline:
+                actors = evt.get("actors", [])
+                for actor in actors:
+                    actor_lower = actor.lower()
+                    actor_words = set(actor_lower.split())
+                    # Match if: exact, contains, or any word overlap
+                    if (actor_lower == entity_lower
+                            or entity_lower in actor_lower
+                            or actor_lower in entity_lower
+                            or entity_words & actor_words):
+                        filtered.append(evt)
+                        break
+            print(f"[API] Filtered {len(filtered)}/{len(timeline)} events for '{entity}'")
+            timeline = filtered
+        
         return {
             "session_id": session_id,
-            "timeline": timeline_data.get("timeline", []),
-            "total_events": timeline_data.get("total_events", 0),
-            "cached": True
+            "timeline": timeline,
+            "total_events": len(timeline),
+            "cached": True,
+            "filtered_by": entity or None,
         }
     
     # No cached timeline - return empty (user must click Extract button)

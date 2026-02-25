@@ -34,33 +34,57 @@ class TimelineEvent:
 class TimelineExtractor:
     """Extracts timeline events from forensic documents using LLM"""
     
-    EXTRACTION_PROMPT = """You are a digital forensics timeline analyst. Extract ALL temporal events from the document below.
+    EXTRACTION_PROMPT = """You are a digital forensics timeline analyst. Your job is to extract a COMPREHENSIVE chronological event log from the document below.
 
 RULES:
-1. Extract EVERY event that has a date, time, or temporal reference
+1. Extract EVERY event that has a date, time, or ANY temporal reference — be thorough
 2. Normalize timestamps to ISO format (YYYY-MM-DD HH:MM:SS) when possible
 3. If only a date is available, use format YYYY-MM-DD
-4. If time is relative (e.g., "two days later"), estimate based on context
-5. Identify the type of each event:
-   - "critical": Security breaches, unauthorized access, data theft, crimes
-   - "warning": Suspicious activity, policy violations, anomalies
-   - "success": Successful operations, recoveries, positive outcomes
-   - "info": General events, routine activities, observations
-6. Extract actors (people, usernames, organizations involved)
-7. Extract artifacts (files, IP addresses, devices, evidence items)
+
+### RELATIVE TIME RESOLUTION (CRITICAL)
+- When the text says relative phrases like "two days later", "the previous night", "the following morning", "a week before", "shortly after", "that evening", "next day", etc., you MUST:
+  a. Find the nearest anchor date/time mentioned earlier in the document
+  b. Compute the actual date/time from that anchor
+  c. Output the RESOLVED absolute timestamp (e.g., if anchor is 2024-03-10 and text says "two days later" → output "2024-03-12")
+  d. Set confidence to "medium" for resolved relative times
+- If no anchor date exists to resolve from, output the relative phrase as-is and set confidence to "low"
+- Temporal phrases like "during the investigation", "at the time of arrest", "when questioned" also count — infer from context
+
+4. Identify the type of each event:
+   - "critical": Security breaches, unauthorized access, data theft, crimes, arrests, key discoveries
+   - "warning": Suspicious activity, policy violations, anomalies, threats, allegations
+   - "success": Successful operations, recoveries, resolutions, positive outcomes
+   - "info": General events, routine activities, observations, background context
+5. Extract actors — see KNOWN ENTITIES below for canonical names
+6. Extract artifacts (files, IP addresses, devices, evidence items, locations, documents)
+7. Extract MORE events rather than fewer — investigators need the full picture. Include:
+   - Communications (calls, emails, messages)
+   - Movements (arrivals, departures, sightings)
+   - Transactions (financial, ownership transfers)
+   - Actions (filed, submitted, created, deleted, modified)
+   - State changes (status updates, role changes)
+
+### KNOWN ENTITIES (use these EXACT canonical names in the "actors" field)
+{entity_context}
+
+### ACTOR RULES
+- When a document mentions any alias, pronoun, abbreviation, or nickname that refers to one of the KNOWN ENTITIES, map it to the EXACT canonical name listed above.
+- If an actor cannot be matched to any known entity, include them as-is.
+- The "actors" array may be empty ([]) if no entity is involved in the event.
+- One event can have MULTIPLE actors.
 
 DOCUMENT CONTENT:
 {document_content}
 
 SOURCE FILE: {source_file}
 
-Respond with a JSON array of events. Each event must have:
-- timestamp: string (ISO format or original if cannot parse)
-- event: string (clear description of what happened)
+Respond with a JSON array of events (extract as many as relevant). Each event must have:
+- timestamp: string (RESOLVED absolute ISO timestamp preferred; original phrase only when unresolvable)
+- event: string (clear, specific description of what happened — include key details)
 - type: string (one of: critical, warning, success, info)
-- actors: array of strings (people/entities involved)
-- artifacts: array of strings (digital evidence items)
-- confidence: string (high, medium, low - based on how explicit the time reference is)
+- actors: array of strings (MUST use canonical entity names from KNOWN ENTITIES when possible)
+- artifacts: array of strings (digital evidence items, locations, documents involved)
+- confidence: string (high = explicit date/time; medium = resolved from relative reference; low = vague/unresolvable)
 
 If no temporal events are found, return an empty array: []
 
@@ -75,13 +99,39 @@ JSON OUTPUT:"""
             max_retries=3
         )
         
-    def extract_from_document(self, doc: Document, source_file: str) -> List[TimelineEvent]:
+    @staticmethod
+    def _build_entity_context(entities: List[Dict[str, Any]]) -> str:
+        """
+        Build a compact entity-context string for the prompt.
+        Each line: "- <Name> (<Type>): <one-liner description>"
+        """
+        if not entities:
+            return "No known entities yet — extract actors as they appear in the text."
+        
+        lines = []
+        for ent in entities:
+            name = ent.get("name", "Unknown")
+            etype = ent.get("type", "unknown").capitalize()
+            desc = ent.get("description", "").strip()
+            if desc:
+                lines.append(f"- {name} ({etype}): {desc}")
+            else:
+                lines.append(f"- {name} ({etype})")
+        return "\n".join(lines)
+
+    def extract_from_document(
+        self,
+        doc: Document,
+        source_file: str,
+        entity_context: str = "",
+    ) -> List[TimelineEvent]:
         """
         Extract timeline events from a single document
         
         Args:
             doc: LangChain Document object
             source_file: Name of the source file
+            entity_context: Pre-formatted entity context string for the prompt
             
         Returns:
             List of TimelineEvent objects
@@ -94,13 +144,17 @@ JSON OUTPUT:"""
         if len(content) > 15000:
             content = content[:15000]
         
+        if not entity_context:
+            entity_context = "No known entities yet — extract actors as they appear in the text."
+        
         try:
             prompt = ChatPromptTemplate.from_template(self.EXTRACTION_PROMPT)
             chain = prompt | self.llm
             
             response = chain.invoke({
                 "document_content": content,
-                "source_file": source_file
+                "source_file": source_file,
+                "entity_context": entity_context,
             })
             
             # Parse JSON response
@@ -141,22 +195,29 @@ JSON OUTPUT:"""
             print(f"[Timeline] Error extracting from {source_file}: {e}")
             return []
     
-    def extract_from_documents(self, documents: List[Document], source_files: List[str]) -> List[TimelineEvent]:
+    def extract_from_documents(
+        self,
+        documents: List[Document],
+        source_files: List[str],
+        entities: List[Dict[str, Any]] = None,
+    ) -> List[TimelineEvent]:
         """
         Extract timeline events from multiple documents
         
         Args:
             documents: List of LangChain Document objects
             source_files: List of source file names (same order as documents)
+            entities: Optional list of entity dicts (from graph extraction) to provide context
             
         Returns:
             Sorted list of TimelineEvent objects
         """
+        entity_context = self._build_entity_context(entities or [])
         all_events = []
         
         for doc, source_file in zip(documents, source_files):
             print(f"[Timeline] Processing: {source_file}")
-            events = self.extract_from_document(doc, source_file)
+            events = self.extract_from_document(doc, source_file, entity_context)
             all_events.extend(events)
             print(f"[Timeline] Found {len(events)} events in {source_file}")
         
@@ -259,13 +320,18 @@ def load_documents_for_timeline(file_path: str) -> List[Document]:
         return []
 
 
-def extract_timeline_from_session(session_id: str, upload_dir: str) -> Dict[str, Any]:
+def extract_timeline_from_session(
+    session_id: str,
+    upload_dir: str,
+    entities: List[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """
     Extract timeline events from all files in a session.
     
     Args:
         session_id: The session ID
         upload_dir: Base path to the uploads directory
+        entities: Optional list of entity dicts from graph extraction
         
     Returns:
         Dictionary with timeline events and metadata
@@ -293,9 +359,11 @@ def extract_timeline_from_session(session_id: str, upload_dir: str) -> Dict[str,
         return {"timeline": [], "message": "No documents could be loaded", "total_events": 0}
     
     print(f"[Timeline] Processing {len(all_documents)} documents for session {session_id}")
+    if entities:
+        print(f"[Timeline] Using {len(entities)} known entities as context")
     
     extractor = get_timeline_extractor()
-    events = extractor.extract_from_documents(all_documents, source_files)
+    events = extractor.extract_from_documents(all_documents, source_files, entities)
     
     # Convert to dict format
     timeline = [event.to_dict() for event in events]

@@ -97,7 +97,12 @@ def get_vectorstore(session_id: str):
     """
     Returns a ChromaDB instance isolated to the specific session_id.
     """
-    embeddings = OllamaEmbeddings(model="nomic-embed-text:latest")
+    from langchain_ollama import OllamaEmbeddings
+
+    embeddings = OllamaEmbeddings(
+        model="nomic-embed-text",
+        base_url="http://localhost:11434"
+    )
     
     collection_name = sanitize_collection_name(session_id)
     

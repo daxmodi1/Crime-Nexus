@@ -1,31 +1,130 @@
-import React from 'react';
-import { 
-  MessageSquare, 
-  FileText, 
-  Users, 
-  Clock, 
-  ArrowLeft, 
-  Dna 
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { MessageSquare, FileText, Users, Clock } from 'lucide-react';
+import { getSessionMessages, sendChatMessage } from '../../utils/api';
 
 import ChatTab from '../tabs/ChatTab';
 import EvidenceTab from '../tabs/EvidenceTab';
 import PeopleTab from '../tabs/PeopleTab';
 import TimelineTab from '../tabs/TimelineTab';
 
-const DashboardView = ({
-  activeTab,
-  setActiveTab,
-  currentCase,
-  messages,
-  newMessage,
-  setNewMessage,
-  isAiTyping,
-  onSendMessage,
-  onClose,
-  sidebarCollapsed
-}) => {
-  const sidebarWidth = sidebarCollapsed ? 'ml-[68px]' : 'ml-64';
+const DashboardView = ({ savedCases }) => {
+  const { caseId } = useParams();
+  const navigate = useNavigate();
+  
+  const [activeTab, setActiveTab] = useState('chat');
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [isAiTyping, setIsAiTyping] = useState(false);
+
+  // Find current case
+  const currentCase = savedCases.find(c => c.sessionId === caseId || c.id === caseId);
+
+  useEffect(() => {
+    if (savedCases.length > 0 && !currentCase) {
+      navigate('/c', { replace: true });
+    }
+  }, [caseId, savedCases, currentCase, navigate]);
+
+  // Load chat messages when caseId changes
+  useEffect(() => {
+    if (!currentCase) return;
+    
+    let isMounted = true;
+    const sessionId = currentCase.sessionId || currentCase.id;
+    
+    (async () => {
+      try {
+        const savedMsgs = await getSessionMessages(sessionId);
+        if (!isMounted) return;
+        
+        if (savedMsgs && savedMsgs.length > 0) {
+          const formatted = savedMsgs.map((msg, idx) => ({
+            id: idx + 1,
+            sender: msg.role === 'user' ? 'You' : 'AI Assistant',
+            text: msg.content,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }));
+          setMessages(formatted);
+        } else {
+          setMessages([{
+            id: 1,
+            sender: 'AI Assistant',
+            text: `Case **${currentCase.title}** loaded. Upload evidence files to begin analysis, then ask me questions about the case.`,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }]);
+        }
+      } catch (err) {
+        if (!isMounted) return;
+        console.error('Could not load messages:', err);
+        setMessages([{
+          id: 1,
+          sender: 'AI Assistant',
+          text: `Case **${currentCase.title}** loaded. Upload evidence files to begin analysis, then ask me questions about the case.`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }]);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, [currentCase]);
+
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+    if (!newMessage.trim()) return;
+    
+    const userMsg = {
+      id: Date.now(),
+      sender: "You",
+      text: newMessage,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setMessages(prev => [...prev, userMsg]);
+    setNewMessage("");
+    setIsAiTyping(true);
+
+    (async () => {
+      try {
+        const sessionId = currentCase?.sessionId || currentCase?.id;
+        if (!sessionId) throw new Error('No session available for chat');
+
+        const resp = await sendChatMessage(sessionId, userMsg.text);
+
+        const aiMsg = {
+          id: Date.now() + 1,
+          sender: 'AI Assistant',
+          text: resp.response || 'No response',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          sources: resp.sources || []
+        };
+
+        setMessages(prev => [...prev, aiMsg]);
+      } catch (err) {
+        console.error('Chat error:', err);
+        const errMsg = {
+          id: Date.now() + 2,
+          sender: 'AI Assistant',
+          text: 'Error contacting backend: ' + (err.message || err),
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        setMessages(prev => [...prev, errMsg]);
+      } finally {
+        setIsAiTyping(false);
+      }
+    })();
+  };
+
+  if (!currentCase) {
+    return (
+      <div className="h-screen bg-[#f6f7ed] flex items-center justify-center">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="w-10 h-10 border-2 border-[#1f1f1f] border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-[#a1a19b] font-mono text-sm">Loading Investigation Workspace...</p>
+        </div>
+      </div>
+    );
+  }
+
   const tabs = [
     { id: 'chat', label: 'Chat', icon: MessageSquare },
     { id: 'evidence', label: 'Evidence', icon: FileText },
@@ -33,7 +132,7 @@ const DashboardView = ({
     { id: 'timeline', label: 'Timeline', icon: Clock }
   ];
 
-  const sessionId = currentCase?.sessionId || currentCase?.id;
+  const sessionId = currentCase.sessionId || currentCase.id;
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -44,7 +143,7 @@ const DashboardView = ({
             newMessage={newMessage}
             setNewMessage={setNewMessage}
             isAiTyping={isAiTyping}
-            onSendMessage={onSendMessage}
+            onSendMessage={handleSendMessage}
           />
         );
       case 'evidence':
@@ -59,10 +158,8 @@ const DashboardView = ({
   };
 
   return (
-    <div className={`${sidebarWidth} h-screen overflow-hidden bg-[#f6f7ed] text-[#1f1f1f] font-sans flex flex-col transition-all duration-300`}>
-      {/* Main Content */}
+    <div className="h-screen overflow-hidden bg-[#f6f7ed] text-[#1f1f1f] font-sans flex flex-col transition-all duration-300">
       <div className="flex-1 px-6 py-6 flex flex-col min-h-0">
-        {/* Tabs Navigation */}
         <div className="flex mb-6 overflow-x-auto scrollbar-hide pb-2">
           <div className="flex items-center bg-[#eaeae6] p-1.5 !rounded-full inline-flex">
             {tabs.map(tab => {
@@ -86,7 +183,6 @@ const DashboardView = ({
           </div>
         </div>
 
-        {/* Tab Content */}
         <div className={`flex-1 min-h-0 ${activeTab !== 'chat' ? 'overflow-y-auto pr-2' : ''} scrollbar-thin scrollbar-thumb-[#d4d4cf] scrollbar-track-transparent`}>
           {renderTabContent()}
         </div>

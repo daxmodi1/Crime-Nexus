@@ -9,24 +9,24 @@ import { AnomalyBadge, AnomalyDetailPanel } from '../ui/AnomalyBadge';
 const getFileTypeInfo = (filename) => {
   const ext = filename?.split('.').pop()?.toLowerCase() || '';
   const typeMap = {
-    pdf:  { type: 'Document',     icon: FileText,      color: 'text-blue-400'   },
-    docx: { type: 'Document',     icon: FileText,      color: 'text-blue-400'   },
-    doc:  { type: 'Document',     icon: FileText,      color: 'text-blue-400'   },
-    pptx: { type: 'Presentation', icon: FileText,      color: 'text-orange-400' },
-    ppt:  { type: 'Presentation', icon: FileText,      color: 'text-orange-400' },
-    txt:  { type: 'Text',         icon: FileText,      color: 'text-zinc-400'   },
-    log:  { type: 'Log',          icon: FileText,      color: 'text-green-400'  },
-    csv:  { type: 'Data',         icon: FileText,      color: 'text-yellow-400' },
-    json: { type: 'Data',         icon: FileText,      color: 'text-yellow-400' },
-    mp4:  { type: 'Video',        icon: Camera,        color: 'text-purple-400' },
-    avi:  { type: 'Video',        icon: Camera,        color: 'text-purple-400' },
-    wav:  { type: 'Audio',        icon: MessageSquare, color: 'text-yellow-400' },
-    mp3:  { type: 'Audio',        icon: MessageSquare, color: 'text-yellow-400' },
-    png:  { type: 'Image',        icon: Camera,        color: 'text-pink-400'   },
-    jpg:  { type: 'Image',        icon: Camera,        color: 'text-pink-400'   },
-    jpeg: { type: 'Image',        icon: Camera,        color: 'text-pink-400'   },
+    pdf:  { type: 'Document',     icon: FileText,      color: 'text-blue-500'   },
+    docx: { type: 'Document',     icon: FileText,      color: 'text-blue-500'   },
+    doc:  { type: 'Document',     icon: FileText,      color: 'text-blue-500'   },
+    pptx: { type: 'Presentation', icon: FileText,      color: 'text-orange-500' },
+    ppt:  { type: 'Presentation', icon: FileText,      color: 'text-orange-500' },
+    txt:  { type: 'Text',         icon: FileText,      color: 'text-[#71717a]'  },
+    log:  { type: 'Log',          icon: FileText,      color: 'text-emerald-500' },
+    csv:  { type: 'Data',         icon: FileText,      color: 'text-amber-500'  },
+    json: { type: 'Data',         icon: FileText,      color: 'text-amber-500'  },
+    mp4:  { type: 'Video',        icon: Camera,        color: 'text-purple-500' },
+    avi:  { type: 'Video',        icon: Camera,        color: 'text-purple-500' },
+    wav:  { type: 'Audio',        icon: MessageSquare, color: 'text-amber-500'  },
+    mp3:  { type: 'Audio',        icon: MessageSquare, color: 'text-amber-500'  },
+    png:  { type: 'Image',        icon: Camera,        color: 'text-pink-500'   },
+    jpg:  { type: 'Image',        icon: Camera,        color: 'text-pink-500'   },
+    jpeg: { type: 'Image',        icon: Camera,        color: 'text-pink-500'   },
   };
-  return typeMap[ext] || { type: 'File', icon: FileText, color: 'text-zinc-400' };
+  return typeMap[ext] || { type: 'File', icon: FileText, color: 'text-[#71717a]' };
 };
 
 // ── EvidenceTab ───────────────────────────────────────────────────────────────
@@ -153,38 +153,38 @@ const EvidenceTab = ({ sessionId }) => {
 
   if (!sessionId) {
     return (
-      <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-12 flex flex-col items-center justify-center text-center">
-        <FolderOpen size={48} className="text-zinc-600 mb-4" />
-        <h3 className="text-zinc-400 font-medium mb-2">No Session Active</h3>
-        <p className="text-zinc-500 text-sm">Open a case to view evidence files.</p>
+      <div className="bg-white border border-[#e8e8e4] rounded-2xl p-12 flex flex-col items-center justify-center text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <FolderOpen size={44} className="text-[#d4d4cf] mb-4" />
+        <h3 className="text-[#71717a] font-medium mb-2">No Session Active</h3>
+        <p className="text-[#a1a19b] text-sm">Open a case to view evidence files.</p>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-12 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full" />
+      <div className="bg-white border border-[#e8e8e4] rounded-2xl p-12 flex items-center justify-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <div className="animate-spin w-8 h-8 border-2 border-[#1f1f1f] border-t-transparent rounded-full" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-12 flex flex-col items-center justify-center text-center">
-        <AlertCircle size={48} className="text-red-400 mb-4" />
-        <h3 className="text-red-400 font-medium mb-2">Error</h3>
-        <p className="text-zinc-500 text-sm">{error}</p>
+      <div className="bg-white border border-[#e8e8e4] rounded-2xl p-12 flex flex-col items-center justify-center text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <AlertCircle size={44} className="text-red-400 mb-4" />
+        <h3 className="text-red-500 font-medium mb-2">Error</h3>
+        <p className="text-[#a1a19b] text-sm">{error}</p>
       </div>
     );
   }
 
   if (evidence.length === 0) {
     return (
-      <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-12 flex flex-col items-center justify-center text-center">
-        <FolderOpen size={48} className="text-zinc-600 mb-4" />
-        <h3 className="text-zinc-400 font-medium mb-2">No Evidence Files</h3>
-        <p className="text-zinc-500 text-sm">Upload evidence files to begin your investigation.</p>
+      <div className="bg-white border border-[#e8e8e4] rounded-2xl p-12 flex flex-col items-center justify-center text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <FolderOpen size={44} className="text-[#d4d4cf] mb-4" />
+        <h3 className="text-[#71717a] font-medium mb-2">No Evidence Files</h3>
+        <p className="text-[#a1a19b] text-sm">Upload evidence files to begin your investigation.</p>
       </div>
     );
   }
@@ -197,31 +197,31 @@ const EvidenceTab = ({ sessionId }) => {
       {/* Toolbar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h3 className="text-sm font-mono text-zinc-500">EVIDENCE FILES</h3>
-          <span className="text-xs bg-zinc-800 px-2 py-0.5 rounded text-zinc-400">
+          <h3 className="text-[13px] font-semibold text-[#71717a] uppercase tracking-wider">Evidence Files</h3>
+          <span className="text-xs bg-[#f4f4f4] px-2.5 py-0.5 rounded-full text-[#71717a] border border-[#e8e8e4]">
             {evidence.length} files
           </span>
           {hasAnomalies && (
             <div className="flex items-center gap-2">
               {highCount > 0 && (
-                <span className="text-xs px-2 py-0.5 rounded border bg-red-500/10 border-red-500/30 text-red-400">
+                <span className="text-xs px-2.5 py-0.5 rounded-full border bg-red-50 border-red-200 text-red-600">
                   {highCount} high anomaly
                 </span>
               )}
               {moderateCount > 0 && (
-                <span className="text-xs px-2 py-0.5 rounded border bg-amber-500/10 border-amber-500/30 text-amber-400">
+                <span className="text-xs px-2.5 py-0.5 rounded-full border bg-amber-50 border-amber-200 text-amber-600">
                   {moderateCount} moderate
                 </span>
               )}
               {highCount === 0 && moderateCount === 0 && detectionRan && (
-                <span className="text-xs px-2 py-0.5 rounded border bg-emerald-500/10 border-emerald-500/30 text-emerald-400">
+                <span className="text-xs px-2.5 py-0.5 rounded-full border bg-emerald-50 border-emerald-200 text-emerald-600">
                   All clear
                 </span>
               )}
             </div>
           )}
           {!hasAnomalies && detectionRan && (
-            <span className="text-xs px-2 py-0.5 rounded border bg-emerald-500/10 border-emerald-500/30 text-emerald-400">
+            <span className="text-xs px-2.5 py-0.5 rounded-full border bg-emerald-50 border-emerald-200 text-emerald-600">
               All clear
             </span>
           )}
@@ -230,7 +230,7 @@ const EvidenceTab = ({ sessionId }) => {
         <button
           onClick={handleDetectAnomalies}
           disabled={detecting}
-          className="text-xs bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 px-3 py-1.5 rounded border border-amber-500/30 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="text-xs bg-white hover:bg-[#f4f4f4] text-[#1f1f1f] px-3.5 py-2 rounded-xl border border-[#e8e8e4] flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
           title="Run LLM anomaly detection across all documents using timeline + graph context"
         >
           {detecting
@@ -241,22 +241,22 @@ const EvidenceTab = ({ sessionId }) => {
       </div>
 
       {/* Table */}
-      <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl overflow-hidden">
+      <div className="bg-white border border-[#e8e8e4] rounded-2xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent pb-2">
           <table className="w-full text-left text-sm">
-            <thead className="bg-zinc-900 text-zinc-500 uppercase font-mono text-xs">
+            <thead className="bg-[#f4f4f4] text-[#71717a] uppercase font-mono text-xs">
               <tr>
-                <th className="px-6 py-4 font-medium">Evidence Name</th>
-                <th className="px-6 py-4 font-medium">Location / Source</th>
-                <th className="px-6 py-4 font-medium">Category</th>
-                <th className="px-6 py-4 font-medium w-44">Case Relevance</th>
-                <th className="px-6 py-4 font-medium w-36" title="0-100. Green=low, Amber=moderate, Red=high. Click score to expand details.">
+                <th className="px-5 py-3.5 font-medium">Evidence Name</th>
+                <th className="px-5 py-3.5 font-medium">Location / Source</th>
+                <th className="px-5 py-3.5 font-medium">Category</th>
+                <th className="px-5 py-3.5 font-medium w-44">Case Relevance</th>
+                <th className="px-5 py-3.5 font-medium w-36" title="0-100. Green=low, Amber=moderate, Red=high. Click score to expand details.">
                   Anomaly Score
                 </th>
-                <th className="px-6 py-4 font-medium text-right">Size</th>
+                <th className="px-5 py-3.5 font-medium text-right">Size</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-800">
+            <tbody className="divide-y divide-[#e8e8e4]">
               {evidence.map((file) => {
                 const IconComponent = file.icon;
                 const anomaly       = anomalyData[file.name] || null;
@@ -265,28 +265,28 @@ const EvidenceTab = ({ sessionId }) => {
 
                 return (
                   <React.Fragment key={file.id}>
-                    <tr className="hover:bg-zinc-800/30 transition-colors">
-                      <td className="px-6 py-4 font-medium text-zinc-200 flex items-center gap-3">
+                    <tr className="hover:bg-[#f6f7ed]/60 transition-colors">
+                      <td className="px-5 py-3.5 font-medium text-[#1f1f1f] flex items-center gap-3">
                         <IconComponent size={16} className={file.color} />
                         {file.name}
                       </td>
                       <td
-                        className="px-6 py-4 text-zinc-500 font-mono text-xs truncate max-w-[150px]"
+                        className="px-5 py-3.5 text-[#a1a19b] font-mono text-xs truncate max-w-[150px]"
                         title={file.location}
                       >
                         {file.location}
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="px-2 py-1 bg-zinc-800 rounded text-xs text-zinc-400 border border-zinc-700">
+                      <td className="px-5 py-3.5">
+                        <span className="px-2.5 py-1 bg-[#f4f4f4] rounded-lg text-xs text-[#71717a] border border-[#e8e8e4]">
                           {file.type}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-5 py-3.5">
                         <RelevanceBar score={file.relevance} />
                       </td>
-              <td className="px-6 py-4">
+                      <td className="px-5 py-3.5">
                         {detecting ? (
-                          <span className="text-xs text-zinc-600 animate-pulse font-mono">analysing…</span>
+                          <span className="text-xs text-[#a1a19b] animate-pulse font-mono">analysing…</span>
                         ) : (
                           <AnomalyBadge
                             score={anomaly?.anomaly_score ?? null}
@@ -295,7 +295,7 @@ const EvidenceTab = ({ sessionId }) => {
                           />
                         )}
                       </td>
-                      <td className="px-6 py-4 text-right text-zinc-400 font-mono text-xs">
+                      <td className="px-5 py-3.5 text-right text-[#a1a19b] font-mono text-xs">
                         {file.size}
                       </td>
                     </tr>
@@ -303,7 +303,7 @@ const EvidenceTab = ({ sessionId }) => {
                     {/* Expanded flag detail panel */}
                     {isExpandable && isExpanded && (
                       <tr>
-                        <td colSpan={6} className="px-6 pb-5 bg-zinc-900/60">
+                        <td colSpan={6} className="px-5 pb-5 bg-[#f6f7ed]/50">
                           <AnomalyDetailPanel anomaly={anomaly} />
                         </td>
                       </tr>
@@ -317,9 +317,9 @@ const EvidenceTab = ({ sessionId }) => {
       </div>
 
       {hasAnomalies && (highCount > 0 || moderateCount > 0) && (
-        <p className="text-xs text-zinc-600 text-right">
+        <p className="text-xs text-[#a1a19b] text-right">
           Click a{' '}
-          <span className="text-amber-500">moderate</span> or{' '}
+          <span className="text-amber-600">moderate</span> or{' '}
           <span className="text-red-500">high</span>{' '}
           anomaly badge to expand evidence flags.
         </p>

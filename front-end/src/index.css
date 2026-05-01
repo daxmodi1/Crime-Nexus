@@ -2,13 +2,15 @@
 @plugin "@tailwindcss/typography";
 
 :root {
-  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
+  font-family: 'General Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-optical-sizing: auto;
+  line-height: 1.6;
   font-weight: 400;
+  letter-spacing: -0.01em;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color-scheme: light;
+  color: #1f1f1f;
+  background-color: #f6f7ed;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -18,17 +20,19 @@
 
 a {
   font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+  color: #1f1f1f;
+  text-decoration: none;
+  transition: color 0.2s ease;
 }
 a:hover {
-  color: #535bf2;
+  color: #3a3a3a;
 }
 
 body {
   margin: 0;
   min-width: 100%;
   min-height: 100vh;
+  background: #f6f7ed;
 }
 
 #root {
@@ -37,38 +41,98 @@ body {
 }
 
 h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+  font-size: 2.5em;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: #1f1f1f;
+}
+
+h2 {
+  font-size: 1.875em;
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #1f1f1f;
+}
+
+h3 {
+  font-size: 1.5em;
+  line-height: 1.35;
+  font-weight: 600;
+  color: #1f1f1f;
 }
 
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
+  border-radius: 10px;
+  border: 1px solid #e8e8e4;
   padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: #ffffff;
+  color: #1f1f1f;
   cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  transition: all 0.2s ease;
+  outline: none;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+button:hover {
+  background-color: #f4f4f4;
+  border-color: #d4d4cf;
+}
+
+button:focus-visible {
+  outline: 2px solid #1f1f1f;
+  outline-offset: 2px;
+}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d4d4cf;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a3;
+}
+
+/* Light-theme compatibility for older dark utility classes used in subviews. */
+:where(.bg-slate-950, .bg-slate-900, .bg-zinc-950, .bg-zinc-900, [class~="bg-slate-950/50"], [class~="bg-slate-900/50"], [class~="bg-slate-900/40"], [class~="bg-slate-900/30"], [class~="bg-slate-800/50"], [class~="bg-slate-800/40"], [class~="bg-slate-800/30"], [class~="bg-zinc-950/50"], [class~="bg-zinc-900/60"], [class~="bg-zinc-900/50"], [class~="bg-zinc-900/40"], [class~="bg-zinc-800/50"], [class~="bg-zinc-800/30"]) {
+  background-color: #ffffff !important;
+}
+
+:where([class*="from-slate-"], [class*="to-slate-"], [class*="via-slate-"], [class*="from-zinc-"], [class*="to-zinc-"]) {
+  --tw-gradient-from: #ffffff !important;
+  --tw-gradient-via: #f6f7ed !important;
+  --tw-gradient-to: #f0f0eb !important;
+}
+
+:where(.text-slate-100, .text-slate-200, .text-zinc-100, .text-zinc-200, .prose-invert :is(p, li, td)) {
+  color: #1f1f1f !important;
+}
+
+:where(.text-slate-300, .text-slate-400, .text-zinc-300, .text-zinc-400, .prose-invert :is(h1, h2, h3, strong)) {
+  color: #3a3a3a !important;
+}
+
+:where(.text-slate-500, .text-slate-600, .text-slate-700, .text-zinc-500, .text-zinc-600, .text-zinc-700) {
+  color: #71717a !important;
+}
+
+:where(.border-slate-800, .border-slate-700, [class~="border-slate-700/50"], [class~="border-slate-700/30"], .border-zinc-800, .border-zinc-700, [class~="border-zinc-800/50"]) {
+  border-color: #e8e8e4 !important;
+}
+
+:where(.bg-slate-800, .bg-zinc-800, [class~="bg-zinc-800/50"], [class~="bg-zinc-800/30"]) {
+  background-color: #f4f4f4 !important;
 }

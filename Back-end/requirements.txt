@@ -1,4 +1,3 @@
-streamlit
 langchain
 pydantic
 uvicorn
@@ -14,8 +13,6 @@ langchain-community
 langchain-experimental
 pymupdf
 langsmith
-unstructured
 langchain-ollama
 python-magic
 python-pptx
-llama-cpp-python

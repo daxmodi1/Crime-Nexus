@@ -3,11 +3,14 @@ import { createSession, sendChatMessage, uploadFile, getSessions, deleteSession,
 import LandingView from './components/views/LandingView';
 import ProcessingView from './components/views/ProcessingView';
 import DashboardView from './components/views/DashboardView';
+import Sidebar from './components/layout/Sidebar';
 
 // --- MAIN APP COMPONENT ---
 
 export default function App() {
   const [view, setView] = useState('landing'); // landing, processing, dashboard
+  const [sidebarTab, setSidebarTab] = useState('home'); // home, analytics, cases, people
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('chat');
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [messages, setMessages] = useState([]);
@@ -236,16 +239,46 @@ export default function App() {
 
   const handleCloseDashboard = () => {
     setView('landing');
+    setSidebarTab('home');
+  };
+
+  const handleSidebarTabChange = (tab) => {
+    setSidebarTab(tab);
+    if (tab === 'home' || tab === 'cases') {
+      setView('landing');
+    } else if (tab === 'logout') {
+      // Handle logout if needed
+      console.log('Logout clicked');
+    }
+  };
+
+  const handleLogout = () => {
+    setView('landing');
+    setSidebarTab('home');
   };
 
   return (
     <>
+      {/* Sidebar (shown on all views except processing) */}
+      {view !== 'processing' && (
+        <Sidebar 
+          activeTab={sidebarTab}
+          onTabChange={handleSidebarTabChange}
+          onLogout={handleLogout}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
+        />
+      )}
+
+      {/* Main Views */}
       {view === 'landing' && (
         <LandingView 
           savedCases={savedCases}
           onUpload={handleUpload}
           onOpenCase={openExistingCase}
           onDeleteCase={deleteCase}
+          sidebarCollapsed={sidebarCollapsed}
+          showCasesOnly={sidebarTab === 'cases'}
         />
       )}
       {view === 'processing' && (
@@ -262,6 +295,7 @@ export default function App() {
           isAiTyping={isAiTyping}
           onSendMessage={handleSendMessage}
           onClose={handleCloseDashboard}
+          sidebarCollapsed={sidebarCollapsed}
         />
       )}
     </>

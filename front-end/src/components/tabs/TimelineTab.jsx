@@ -135,11 +135,11 @@ const TimelineTab = ({ sessionId }) => {
     return (
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
-          <h3 className="text-sm font-mono text-zinc-500">INCIDENT LOG (LOCAL TIME)</h3>
+          <h3 className="text-[13px] font-semibold text-[#71717a] uppercase tracking-wider">Incident Log (Local Time)</h3>
           <button 
             onClick={extractTimeline}
             disabled={extracting || !sessionId}
-            className="text-xs bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 px-3 py-1 rounded border border-cyan-500/30 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-xs bg-white hover:bg-[#f4f4f4] text-[#1f1f1f] px-3.5 py-2 rounded-xl border border-[#e8e8e4] flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
           >
             {extracting ? <RefreshCw size={12} className="animate-spin" /> : <Zap size={12} />}
             {extracting ? 'Extracting...' : 'Extract Timeline from Evidence'}
@@ -153,12 +153,12 @@ const TimelineTab = ({ sessionId }) => {
           </div>
         )}
         
-        <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
-          <div className="p-4 rounded-full bg-zinc-800/50 mb-4">
-            <Clock size={48} className="text-zinc-600" />
+        <div className="bg-white border border-[#e8e8e4] rounded-2xl p-12 flex flex-col items-center justify-center text-center min-h-[400px] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="p-4 rounded-2xl bg-[#f4f4f4] mb-4">
+            <Clock size={44} className="text-[#d4d4cf]" />
           </div>
-          <h3 className="text-zinc-400 font-medium text-lg mb-2">No Timeline Events</h3>
-          <p className="text-zinc-500 text-sm max-w-md">
+          <h3 className="text-[#71717a] font-medium text-lg mb-2">No Timeline Events</h3>
+          <p className="text-[#a1a19b] text-sm max-w-md">
             Upload evidence files and click "Extract Timeline from Evidence" to automatically identify temporal events from your documents.
           </p>
         </div>
@@ -170,16 +170,16 @@ const TimelineTab = ({ sessionId }) => {
     <div className="max-w-4xl mx-auto pl-4 md:pl-0">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <h3 className="text-sm font-mono text-zinc-500">
-            {filterEntity ? `TIMELINE \u2014 ${filterEntity}` : 'INCIDENT LOG (LOCAL TIME)'}
+          <h3 className="text-[13px] font-semibold text-[#71717a] uppercase tracking-wider">
+            {filterEntity ? `Timeline — ${filterEntity}` : 'Incident Log (Local Time)'}
           </h3>
-          <span className="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30">
+          <span className="text-xs bg-emerald-50 text-emerald-600 px-2.5 py-0.5 rounded-full border border-emerald-200">
             {stats.total} events
           </span>
           {filterEntity && (
             <button
               onClick={() => setFilterEntity(null)}
-              className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded border border-purple-500/30 flex items-center gap-1 hover:bg-purple-500/20"
+              className="text-xs bg-purple-50 text-purple-600 px-2.5 py-0.5 rounded-full border border-purple-200 flex items-center gap-1 hover:bg-purple-100"
             >
               <X size={10} /> Clear filter
             </button>
@@ -189,7 +189,7 @@ const TimelineTab = ({ sessionId }) => {
           <button 
             onClick={extractTimeline}
             disabled={extracting || !sessionId}
-            className="text-xs bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 px-3 py-1 rounded border border-cyan-500/30 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-xs bg-white hover:bg-[#f4f4f4] text-[#1f1f1f] px-3.5 py-2 rounded-xl border border-[#e8e8e4] flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
           >
             {extracting ? (
               <RefreshCw size={12} className="animate-spin" />
@@ -203,7 +203,7 @@ const TimelineTab = ({ sessionId }) => {
             <select
               value={filterEntity || ''}
               onChange={e => setFilterEntity(e.target.value || null)}
-              className="text-xs bg-zinc-900 hover:bg-zinc-800 px-3 py-1 rounded border border-zinc-800 text-zinc-300 appearance-none cursor-pointer"
+              className="text-xs bg-white hover:bg-[#f4f4f4] px-3.5 py-2 rounded-xl border border-[#e8e8e4] text-[#1f1f1f] appearance-none cursor-pointer shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
             >
               <option value="">All Entities</option>
               {knownActors.map(actor => (
@@ -216,7 +216,7 @@ const TimelineTab = ({ sessionId }) => {
 
       {/* Info banner (e.g., entities auto-extracted) */}
       {infoBanner && (
-        <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg flex items-center justify-between text-blue-400 text-sm">
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between text-blue-600 text-sm">
           <div className="flex items-center gap-2">
             <Users size={16} />
             {infoBanner}
@@ -228,7 +228,7 @@ const TimelineTab = ({ sessionId }) => {
       )}
 
       {error && (
-        <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex items-center gap-2 text-yellow-400 text-sm">
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2 text-amber-600 text-sm">
           <AlertCircle size={16} />
           {error}
         </div>
@@ -236,12 +236,12 @@ const TimelineTab = ({ sessionId }) => {
 
       {/* Loading State */}
       {(loading || extracting) && (
-        <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-12 flex flex-col items-center justify-center text-center min-h-[300px]">
-          <RefreshCw size={48} className="text-cyan-500 animate-spin mb-4" />
-          <h3 className="text-zinc-400 font-medium text-lg mb-2">
+        <div className="bg-white border border-[#e8e8e4] rounded-2xl p-12 flex flex-col items-center justify-center text-center min-h-[300px] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <RefreshCw size={40} className="text-[#1f1f1f] animate-spin mb-4" />
+          <h3 className="text-[#71717a] font-medium text-lg mb-2">
             {extracting ? 'Extracting Timeline Events...' : 'Loading Timeline...'}
           </h3>
-          <p className="text-zinc-500 text-sm">
+          <p className="text-[#a1a19b] text-sm">
             {extracting ? 'Analyzing documents for temporal events using AI' : 'Fetching cached timeline data'}
           </p>
         </div>
@@ -250,20 +250,20 @@ const TimelineTab = ({ sessionId }) => {
       {!loading && !extracting && (
       <div className="relative">
         {/* Vertical Connector Line */}
-        <div className="absolute top-3 bottom-8 w-px bg-zinc-800 
+        <div className="absolute top-3 bottom-8 w-px bg-[#e8e8e4] 
                         left-4 
                         md:left-42"></div>
 
         <div className="space-y-8">
-          {timeline.map((item, idx) => (
+          {timeline.map((item) => (
             <div key={item.id} className="relative pl-12 md:pl-0 md:flex group">
               
               {/* Date/Time Column */}
               <div className="mb-2 md:mb-0 md:w-36 md:text-right shrink-0 flex flex-col justify-start md:pt-1 md:pr-4">
-                <span className="font-mono text-xs text-zinc-500 block">
+                <span className="font-mono text-xs text-[#a1a19b] block">
                   {item.timestamp.split(' ')[0]}
                 </span>
-                <span className="font-mono text-sm font-bold text-zinc-300">
+                <span className="font-mono text-sm font-semibold text-[#1f1f1f]">
                   {item.timestamp.split(' ')[1] || item.timestamp.split('T')[1]?.slice(0,8) || ''}
                 </span>
               </div>
@@ -272,21 +272,21 @@ const TimelineTab = ({ sessionId }) => {
               <div className="absolute left-4 top-2 -translate-x-1/2 
                               md:relative md:left-auto md:top-auto md:translate-x-0
                               md:w-12 md:flex md:justify-center md:pt-2">
-                 <div className={`w-3 h-3 rounded-full border-2 bg-zinc-950 transition-all duration-300 group-hover:scale-125 z-10
-                   ${item.type === 'critical' ? 'border-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] bg-red-500/20' : 
-                     item.type === 'warning' ? 'border-yellow-500 bg-yellow-500/20' : 
-                     item.type === 'success' ? 'border-emerald-500 bg-emerald-500/20' : 'border-blue-500 bg-blue-500/20'}
+                 <div className={`w-3 h-3 rounded-full border-2 bg-white transition-all duration-300 group-hover:scale-125 z-10
+                   ${item.type === 'critical' ? 'border-red-500 shadow-[0_0_8px_rgba(239,68,68,0.3)] bg-red-50' : 
+                     item.type === 'warning' ? 'border-amber-500 bg-amber-50' : 
+                     item.type === 'success' ? 'border-emerald-500 bg-emerald-50' : 'border-[#1f1f1f] bg-[#1f1f1f]'}
                  `}></div>
               </div>
 
               {/* Content Column */}
               <div className="flex-1">
-                <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-800/50 hover:border-cyan-500/30 transition-all relative">
+                <div className="bg-white p-4 rounded-2xl border border-[#e8e8e4] hover:border-[#d4d4cf] transition-all relative shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
                   {/* Triangle Pointer for Desktop */}
-                  <div className="hidden md:block absolute top-3.5 -left-1.5 w-3 h-3 bg-zinc-900 border-l border-b border-zinc-800/50 transform rotate-45 group-hover:border-cyan-500/30 transition-colors"></div>
+                  <div className="hidden md:block absolute top-3.5 -left-1.5 w-3 h-3 bg-white border-l border-b border-[#e8e8e4] transform rotate-45 group-hover:border-[#d4d4cf] transition-colors"></div>
 
                   <div className="flex justify-between items-start mb-2">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase
                       ${item.type === 'critical' ? 'bg-red-500/10 text-red-400' : 
                         item.type === 'warning' ? 'bg-yellow-500/10 text-yellow-400' : 
                         item.type === 'success' ? 'bg-emerald-500/10 text-emerald-400' :
@@ -302,13 +302,13 @@ const TimelineTab = ({ sessionId }) => {
                     </span>
                   </div>
                   
-                  <p className="text-zinc-100 font-medium text-lg mb-2">{item.event}</p>
+                  <p className="text-[#1f1f1f] font-medium text-lg mb-2">{item.event}</p>
                   
                   {/* Show actors if available */}
                   {item.actors && item.actors.length > 0 && (
                     <div className="mb-2 flex flex-wrap gap-1">
                       {item.actors.map((actor, i) => (
-                        <span key={i} className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded">
+                        <span key={i} className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-lg border border-purple-200">
                           {actor}
                         </span>
                       ))}
@@ -319,15 +319,15 @@ const TimelineTab = ({ sessionId }) => {
                   {item.artifacts && item.artifacts.length > 0 && (
                     <div className="mb-2 flex flex-wrap gap-1">
                       {item.artifacts.map((artifact, i) => (
-                        <span key={i} className="text-xs font-mono bg-zinc-800 text-cyan-400 px-2 py-0.5 rounded">
+                        <span key={i} className="text-xs font-mono bg-[#f4f4f4] text-[#1f1f1f] px-2 py-0.5 rounded-lg border border-[#e8e8e4]">
                           {artifact}
                         </span>
                       ))}
                     </div>
                   )}
                   
-                  <div className="flex items-center gap-2 text-xs text-zinc-500 bg-zinc-950/50 p-2 rounded border border-zinc-800/50">
-                     <FileText size={12} className="text-cyan-500"/>
+                  <div className="flex items-center gap-2 text-xs text-[#a1a19b] bg-[#f6f7ed] p-2 rounded-xl border border-[#e8e8e4]">
+                     <FileText size={12} className="text-[#71717a]"/>
                      <span className="font-mono">Source: {item.sourceFile}</span>
                   </div>
                 </div>

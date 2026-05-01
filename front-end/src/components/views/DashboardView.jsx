@@ -22,10 +22,12 @@ const DashboardView = ({
   setNewMessage,
   isAiTyping,
   onSendMessage,
-  onClose
+  onClose,
+  sidebarCollapsed
 }) => {
+  const sidebarWidth = sidebarCollapsed ? 'ml-[68px]' : 'ml-64';
   const tabs = [
-    { id: 'chat', label: 'AI Chat', icon: MessageSquare },
+    { id: 'chat', label: 'Chat', icon: MessageSquare },
     { id: 'evidence', label: 'Evidence', icon: FileText },
     { id: 'people', label: 'People', icon: Users },
     { id: 'timeline', label: 'Timeline', icon: Clock }
@@ -57,75 +59,35 @@ const DashboardView = ({
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans">
-      {/* Header */}
-      <header className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-lg sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          {/* Left: Back & Logo */}
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={onClose}
-              className="p-2 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 transition-colors"
-              title="Back to Home"
-            >
-              <ArrowLeft size={20} />
-            </button>
-            <div className="flex items-center gap-2">
-              <Dna size={24} className="text-cyan-400" />
-              <span className="text-lg font-bold tracking-tight">
-                CRIME<span className="text-cyan-500">NEXUS</span>
-              </span>
-            </div>
-          </div>
-
-          {/* Center: Case Info */}
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-mono text-cyan-500 bg-cyan-500/10 px-2 py-1 rounded border border-cyan-500/30">
-              {currentCase?.id || 'NO-CASE'}
-            </span>
-            <h1 className="text-sm font-medium text-zinc-300 max-w-xs truncate">
-              {currentCase?.title || 'Untitled Case'}
-            </h1>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
-              currentCase?.status === 'Open' 
-                ? 'border-red-500/30 text-red-400 bg-red-500/10' 
-                : 'border-zinc-700 text-zinc-500 bg-zinc-800'
-            }`}>
-              {currentCase?.status || 'Unknown'}
-            </span>
-          </div>
-
-          {/* Right: Spacer or Actions */}
-          <div className="w-24" />
-        </div>
-      </header>
-
+    <div className={`${sidebarWidth} h-screen overflow-hidden bg-[#f6f7ed] text-[#1f1f1f] font-sans flex flex-col transition-all duration-300`}>
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="flex-1 px-6 py-6 flex flex-col min-h-0">
         {/* Tabs Navigation */}
-        <div className="flex gap-2 mb-6 border-b border-zinc-800 pb-4">
-          {tabs.map(tab => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  isActive
-                    ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 border border-transparent'
-                }`}
-              >
-                <Icon size={16} />
-                {tab.label}
-              </button>
-            );
-          })}
+        <div className="flex mb-6 overflow-x-auto scrollbar-hide pb-2">
+          <div className="flex items-center bg-[#eaeae6] p-1.5 !rounded-full inline-flex">
+            {tabs.map(tab => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center justify-center gap-2 px-5 py-2 !rounded-full text-[13px] font-semibold transition-all whitespace-nowrap flex-shrink-0 !border-none min-w-[100px] ${
+                    isActive
+                      ? 'bg-white text-[#1f1f1f] shadow-[0_1px_3px_rgba(0,0,0,0.08)]'
+                      : 'text-[#71717a] hover:text-[#1f1f1f] hover:bg-[#f4f4f4]/50 !bg-transparent !shadow-none'
+                  }`}
+                >
+                  {isActive && <Icon size={16} className="text-[#1f1f1f]" />}
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Tab Content */}
-        <div className="min-h-[calc(100vh-200px)]">
+        <div className={`flex-1 min-h-0 ${activeTab !== 'chat' ? 'overflow-y-auto pr-2' : ''} scrollbar-thin scrollbar-thumb-[#d4d4cf] scrollbar-track-transparent`}>
           {renderTabContent()}
         </div>
       </div>

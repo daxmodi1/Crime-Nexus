@@ -11,7 +11,7 @@ import {
   Trash2
 } from 'lucide-react';
 
-const Sidebar = ({ savedCases, onDeleteCase, collapsed, onToggleCollapse }) => {
+const Sidebar = ({ savedCases, onDeleteCase, collapsed, onToggleCollapse, onLogout }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -119,6 +119,7 @@ const Sidebar = ({ savedCases, onDeleteCase, collapsed, onToggleCollapse }) => {
           {!collapsed && <span className="text-[13px] font-medium whitespace-nowrap">Settings</span>}
         </button>
         <button
+          onClick={onLogout}
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[#71717a] hover:text-[#1f1f1f] hover:bg-[#eaeae6] transition-all !bg-transparent !border-none !shadow-none ${
             collapsed ? 'justify-center' : ''
           }`}

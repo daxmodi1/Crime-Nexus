@@ -528,99 +528,136 @@ const PeopleTab = ({ sessionId }) => {
             width={containerSize.width}
             height={containerSize.height}
             graphData={graphData}
-            nodeLabel={node => `${node.name}${node.description ? `\n${node.description}` : ''}`}
-            nodeColor={getNodeColor}
+            nodeLabel={() => ''} // Disable default tooltip to use custom drawn labels
             nodeRelSize={6}
             onNodeClick={handleNodeClick}
             linkLabel={link => link.relationship}
-            linkColor={() => '#d4d4cf'}
+            linkColor={() => 'rgba(0, 0, 0, 0.08)'}
             linkWidth={1.5}
-            linkDirectionalArrowLength={4}
-            linkDirectionalArrowRelPos={1}
+            linkDirectionalParticles={2}
+            linkDirectionalParticleWidth={2}
+            linkDirectionalParticleColor={() => 'rgba(0, 0, 0, 0.3)'}
+            linkDirectionalParticleSpeed={d => 0.005 + (Math.random() * 0.005)}
             backgroundColor="#ffffff"
             nodeCanvasObject={(node, ctx, globalScale) => {
-              const label      = node.name;
-              const fontSize   = 12 / globalScale;
+              const label = node.name;
+              // Ensure font doesn't get infinitely small or large
+              const fontSize = Math.max(12 / globalScale, 2);
               const nodeRadius = node.val || 5;
-              ctx.font = `${fontSize}px Sans-Serif`;
+              const isSelected = selectedNode && node.id === selectedNode.id;
+              
+              // Base color for the node
+              const color = getNodeColor(node);
 
-              // Selected node highlight ring
-              if (selectedNode && node.id === selectedNode.id) {
+              // 1. Draw soft outer glow
+              ctx.beginPath();
+              ctx.arc(node.x, node.y, nodeRadius + (isSelected ? 10 : 5), 0, 2 * Math.PI, false);
+              ctx.fillStyle = isSelected ? 'rgba(0, 0, 0, 0.08)' : `${color}25`; // ~15% opacity hex
+              ctx.fill();
+
+              // 2. Draw intense inner ring if selected or anomalous
+              const sev = node.anomaly?.severity;
+              if (isSelected || (sev && sev !== 'normal' && sev !== 'low')) {
+                const ringColor = isSelected ? 'rgba(31, 31, 31, 0.6)' : 
+                                 (sev === 'critical' || sev === 'high') ? 'rgba(239, 68, 68, 0.8)' : 
+                                 'rgba(245, 158, 11, 0.8)';
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, nodeRadius + 7, 0, 2 * Math.PI, false);
-                ctx.strokeStyle = 'rgba(31, 31, 31, 0.5)';
-                ctx.lineWidth = 2;
+                ctx.arc(node.x, node.y, nodeRadius + 2, 0, 2 * Math.PI, false);
+                ctx.strokeStyle = ringColor;
+                ctx.lineWidth = 1.5;
                 ctx.stroke();
               }
 
-              // Draw anomaly glow ring based on entity's own anomaly score
-              const sev = node.anomaly?.severity;
-              if (sev && sev !== 'normal' && sev !== 'low') {
-                const ringColor = (sev === 'high' || sev === 'critical')
-                  ? 'rgba(239, 68, 68, 0.55)'    // red glow
-                  : 'rgba(245, 158, 11, 0.45)';   // amber glow
-                ctx.beginPath();
-                ctx.arc(node.x, node.y, nodeRadius + 5, 0, 2 * Math.PI, false);
-                ctx.fillStyle = ringColor;
-                ctx.fill();
-              }
-
-              // Draw node circle
+              // 3. Draw solid core
               ctx.beginPath();
               ctx.arc(node.x, node.y, nodeRadius, 0, 2 * Math.PI, false);
-              ctx.fillStyle = getNodeColor(node);
+              ctx.fillStyle = color;
               ctx.fill();
 
-              // Draw label below node
-              ctx.textAlign    = 'center';
-              ctx.textBaseline = 'top';
-              ctx.fillStyle    = '#1f1f1f';
-              ctx.fillText(label, node.x, node.y + nodeRadius + 2);
+              // 4. Draw Label (Only if zoomed in enough or if selected, to reduce clutter)
+              if (globalScale > 1.2 || isSelected) {
+                ctx.font = `600 ${fontSize}px Manrope, sans-serif`;
+                const textWidth = ctx.measureText(label).width;
+                const padX = fontSize * 0.8;
+                const padY = fontSize * 0.5;
+                
+                const bckgW = textWidth + padX * 2;
+                const bckgH = fontSize + padY * 2;
+
+                const labelYOffset = nodeRadius + 6;
+
+                // Draw pill background
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; // Light frosted feel
+                ctx.beginPath();
+                if (ctx.roundRect) {
+                  ctx.roundRect(node.x - bckgW / 2, node.y + labelYOffset, bckgW, bckgH, bckgH / 2);
+                } else {
+                  ctx.rect(node.x - bckgW / 2, node.y + labelYOffset, bckgW, bckgH); // Fallback
+                }
+                ctx.fill();
+                
+                // Draw pill border
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.06)';
+                ctx.lineWidth = 1 / globalScale;
+                ctx.stroke();
+
+                // Draw text
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = isSelected ? '#000000' : 'rgba(31, 31, 31, 0.85)';
+                ctx.fillText(label, node.x, node.y + labelYOffset + bckgH / 2);
+              }
             }}
             nodePointerAreaPaint={(node, color, ctx) => {
               const nodeRadius = node.val || 5;
               ctx.fillStyle = color;
               ctx.beginPath();
-              ctx.arc(node.x, node.y, nodeRadius + 5, 0, 2 * Math.PI, false);
+              ctx.arc(node.x, node.y, nodeRadius + 10, 0, 2 * Math.PI, false);
               ctx.fill();
+            }}
+            onEngineStop={() => {
+              // Automatically zoom to fit the graph nicely when layout stabilizes
+              if (graphRef.current) {
+                graphRef.current.zoomToFit(400, 40);
+              }
             }}
           />
           
           {/* Legend */}
-          <div className="absolute bottom-4 left-4 bg-white/95 border border-[#e8e8e4] rounded-xl p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-            <div className="text-xs text-[#a1a19b] mb-2 font-medium">Entity Types</div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-              <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-blue-500"></span>
-                <span className="text-[#71717a]">Person</span>
+          <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-md border border-[#e8e8e4] rounded-xl p-3.5 shadow-sm">
+            <div className="text-[11px] uppercase tracking-wider text-[#a1a19b] mb-3 font-bold">Entity Types</div>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                <span className="text-[#71717a] font-medium">Person</span>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-purple-500"></span>
-                <span className="text-[#71717a]">Organization</span>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                <span className="text-[#71717a] font-medium">Organization</span>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-green-500"></span>
-                <span className="text-[#71717a]">Location</span>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
+                <span className="text-[#71717a] font-medium">Location</span>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-amber-500"></span>
-                <span className="text-[#71717a]">Event</span>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                <span className="text-[#71717a] font-medium">Event</span>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-cyan-500"></span>
-                <span className="text-[#71717a]">Vehicle</span>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-pink-500"></span>
+                <span className="text-[#71717a] font-medium">Phone</span>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-red-500"></span>
-                <span className="text-[#71717a]">Weapon</span>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>
+                <span className="text-[#71717a] font-medium">Vehicle</span>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-gray-500"></span>
-                <span className="text-[#71717a]">Document</span>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                <span className="text-[#71717a] font-medium">Weapon</span>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-pink-500"></span>
-                <span className="text-[#71717a]">Phone</span>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-gray-500"></span>
+                <span className="text-[#71717a] font-medium">Document</span>
               </div>
             </div>
           </div>

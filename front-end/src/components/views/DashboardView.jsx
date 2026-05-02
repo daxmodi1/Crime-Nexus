@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MessageSquare, FileText, Users, Clock } from 'lucide-react';
+import { MessageSquare, FileText, Users, Clock, FolderOpen } from 'lucide-react';
 import { getSessionMessages, sendChatMessage } from '../../utils/api';
 
 import ChatTab from '../tabs/ChatTab';
 import EvidenceTab from '../tabs/EvidenceTab';
 import PeopleTab from '../tabs/PeopleTab';
 import TimelineTab from '../tabs/TimelineTab';
+import RawEvidenceTab from '../tabs/RawEvidenceTab';
 
 const DashboardView = ({ savedCases }) => {
   const { caseId } = useParams();
@@ -127,9 +128,10 @@ const DashboardView = ({ savedCases }) => {
 
   const tabs = [
     { id: 'chat', label: 'Chat', icon: MessageSquare },
-    { id: 'evidence', label: 'Evidence', icon: FileText },
+    { id: 'evidence', label: 'Analysis', icon: FileText },
     { id: 'people', label: 'People', icon: Users },
-    { id: 'timeline', label: 'Timeline', icon: Clock }
+    { id: 'timeline', label: 'Timeline', icon: Clock },
+    { id: 'raw_evidence', label: 'Raw Files', icon: FolderOpen }
   ];
 
   const sessionId = currentCase.sessionId || currentCase.id;
@@ -152,6 +154,8 @@ const DashboardView = ({ savedCases }) => {
         return <PeopleTab sessionId={sessionId} />;
       case 'timeline':
         return <TimelineTab sessionId={sessionId} />;
+      case 'raw_evidence':
+        return <RawEvidenceTab sessionId={sessionId} />;
       default:
         return null;
     }

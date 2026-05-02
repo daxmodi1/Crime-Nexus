@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { createSession, uploadFile, getSessions, deleteSession } from './utils/api';
+import { supabase } from './lib/supabase';
+
+import HeroView from './components/views/HeroView';
+import AuthView from './components/views/AuthView';
 import UploadView from './components/views/UploadView';
 import ProcessingView from './components/views/ProcessingView';
 import DashboardView from './components/views/DashboardView';
 import Sidebar from './components/layout/Sidebar';
 
-// Inner component to access router hooks
-const AppContent = () => {
+// Inner component for authenticated workspace
+const AuthenticatedWorkspace = () => {
   const [savedCases, setSavedCases] = useState([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -38,27 +42,24 @@ const AppContent = () => {
     })();
   }, []);
 
-  const handleUpload = async (files) => {
-    if (!files || files.length === 0) return;
+  const handleUpload = async (files, caseName) => {
+    if (!files || files.length === 0 || !caseName) return;
 
     setIsProcessing(true);
     setLoadingProgress(0);
     
-    // Create a new case for the upload
     const newCase = { 
       id: `CASE-${Math.floor(Math.random() * 1000)}-UPLOAD`, 
-      title: files.length === 1 ? files[0].name : `Evidence Upload (${files.length} files)`,
+      title: caseName,
       date: new Date().toISOString().split('T')[0], 
       status: 'Processing',
       filesUploaded: []
     };
 
     try {
-      // Create backend session first
       const session = await createSession(newCase.title);
       newCase.sessionId = session.id;
 
-      // Upload each file and track progress
       const totalFiles = files.length;
       let uploadedCount = 0;
 
@@ -73,21 +74,15 @@ const AppContent = () => {
           });
         } catch (err) {
           console.error(`Error uploading ${file.name}:`, err);
-          newCase.filesUploaded.push({
-            name: file.name,
-            success: false,
-            error: err.message
-          });
+          newCase.filesUploaded.push({ name: file.name, success: false, error: err.message });
         }
         uploadedCount++;
         setLoadingProgress(Math.round((uploadedCount / totalFiles) * 100));
       }
 
-      // Mark case as open and add to saved cases
       newCase.status = 'Open';
       setSavedCases(prev => [newCase, ...prev]);
 
-      // Small delay before transitioning to dashboard
       setTimeout(() => {
         setIsProcessing(false);
         navigate(`/c/${session.id}`);
@@ -95,7 +90,6 @@ const AppContent = () => {
 
     } catch (err) {
       console.error('Failed to create session:', err);
-      // Fallback: still go to dashboard but without backend session
       newCase.status = 'Error';
       setSavedCases(prev => [newCase, ...prev]);
       setLoadingProgress(100);
@@ -110,20 +104,21 @@ const AppContent = () => {
     e.preventDefault();
     e.stopPropagation();
     
-    // Optimistically remove from UI
     setSavedCases(prev => prev.filter(c => c.id !== caseId && c.sessionId !== caseId));
     
-    // If the deleted case is currently open, navigate back to /c
     if (location.pathname === `/c/${caseId}`) {
       navigate('/c');
     }
 
-    // Delete from backend
     try {
       await deleteSession(caseId);
     } catch (err) {
       console.error('Failed to delete session from backend:', err);
     }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
   };
 
   if (isProcessing) {
@@ -137,22 +132,73 @@ const AppContent = () => {
         onDeleteCase={handleDeleteCase}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
+        onLogout={handleLogout}
       />
       <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'ml-[68px]' : 'ml-64'}`}>
         <Routes>
-          <Route path="/" element={<Navigate to="/c" replace />} />
-          <Route path="/c" element={<UploadView onUpload={handleUpload} />} />
-          <Route path="/c/:caseId" element={<DashboardView savedCases={savedCases} />} />
+          <Route path="/" element={<UploadView onUpload={handleUpload} />} />
+          <Route path="/:caseId" element={<DashboardView savedCases={savedCases} />} />
         </Routes>
       </div>
     </div>
   );
 };
 
+// Main App Component with Supabase Auth Routing
 export default function App() {
+  const [session, setSession] = useState(undefined);
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Show a loading state until session is checked (undefined means checking, null means no session)
+  if (session === undefined) {
+    return (
+      <div className="h-screen bg-[#f6f7ed] flex items-center justify-center">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="w-10 h-10 border-2 border-[#1f1f1f] border-t-transparent rounded-full animate-spin mb-4"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Router>
-      <AppContent />
+      <Routes>
+        {/* Public Routes */}
+        <Route 
+          path="/" 
+          element={session ? <Navigate to="/c" replace /> : <HeroView />} 
+        />
+        <Route 
+          path="/login" 
+          element={session ? <Navigate to="/c" replace /> : <AuthView mode="login" />} 
+        />
+        <Route 
+          path="/signup" 
+          element={session ? <Navigate to="/c" replace /> : <AuthView mode="signup" />} 
+        />
+
+        {/* Protected Workspace Routes (everything under /c) */}
+        <Route 
+          path="/c/*" 
+          element={session ? <AuthenticatedWorkspace /> : <Navigate to="/login" replace />} 
+        />
+
+        {/* Fallback route */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </Router>
   );
 }

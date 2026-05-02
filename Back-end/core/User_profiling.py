@@ -73,19 +73,17 @@ class Relationship:
 class UserProfilingEngine:
     """Engine for extracting entities and relationships from documents"""
     
-    # Entity types relevant to digital forensics
+    # Entity types relevant to digital forensics - MEDIUM SCALE
     ALLOWED_NODES = [
-        "Person", "Organization", "Location", "Event", 
-        "Vehicle", "Weapon", "Document", "Evidence",
-        "Phone", "Email", "Account", "Device", "Date", "Money"
+        "Person", "Organization", "Location", "Event",
+        "Vehicle", "Weapon", "Document", "Phone", "Account"
     ]
     
-    # Relationship types for forensic analysis
+    # Relationship types for forensic analysis - MEDIUM SCALE
     ALLOWED_RELATIONSHIPS = [
         "KNOWS", "WORKS_FOR", "LIVES_AT", "OWNS", "CONTACTED",
-        "SENT_TO", "RECEIVED_FROM", "PRESENT_AT", "WITNESSED",
-        "INVOLVED_IN", "RELATED_TO", "ASSOCIATED_WITH",
-        "COMMUNICATED_WITH", "TRANSFERRED_TO", "LOCATED_AT"
+        "SENT_TO", "RECEIVED_FROM", "INVOLVED_IN", "LOCATED_AT", 
+        "ASSOCIATED_WITH", "PARTICIPATED_IN"
     ]
     
     # ---- Anomaly scoring prompt sent AFTER graph extraction ----
@@ -205,7 +203,7 @@ Relationships:
             allowed_relationships=self.ALLOWED_RELATIONSHIPS,
             node_properties=["description"],
             relationship_properties=["description"],
-            strict_mode=False
+            strict_mode=True
         )
     
     # ---------- anomaly scoring (post graph-extraction) ----------

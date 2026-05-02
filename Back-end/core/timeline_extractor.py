@@ -34,35 +34,29 @@ class TimelineEvent:
 class TimelineExtractor:
     """Extracts timeline events from forensic documents using LLM"""
     
-    EXTRACTION_PROMPT = """You are a digital forensics timeline analyst. Your job is to extract a COMPREHENSIVE chronological event log from the document below.
+    EXTRACTION_PROMPT = """You are a digital forensics timeline analyst. Your job is to extract a BALANCED, MEDIUM-DETAIL TIMELINE from the document below.
 
 RULES:
-1. Extract EVERY event that has a date, time, or ANY temporal reference — be thorough
-2. Normalize timestamps to ISO format (YYYY-MM-DD HH:MM:SS) when possible
-3. If only a date is available, use format YYYY-MM-DD
+1. Extract all meaningful investigative steps, discoveries, communications, financial transactions, and events. Include important procedural steps (like obtaining a warrant, executing a search, or collecting key evidence) but AVOID highly repetitive, minor administrative noise.
+2. Normalize timestamps to ISO format (YYYY-MM-DD HH:MM:SS) when possible.
+3. If only a date is available, use format YYYY-MM-DD.
 
 ### RELATIVE TIME RESOLUTION (CRITICAL)
-- When the text says relative phrases like "two days later", "the previous night", "the following morning", "a week before", "shortly after", "that evening", "next day", etc., you MUST:
+- When the text says relative phrases like "two days later", "the previous night", "the following morning", "a week before", etc., you MUST:
   a. Find the nearest anchor date/time mentioned earlier in the document
   b. Compute the actual date/time from that anchor
   c. Output the RESOLVED absolute timestamp (e.g., if anchor is 2024-03-10 and text says "two days later" → output "2024-03-12")
   d. Set confidence to "medium" for resolved relative times
-- If no anchor date exists to resolve from, output the relative phrase as-is and set confidence to "low"
-- Temporal phrases like "during the investigation", "at the time of arrest", "when questioned" also count — infer from context
+- If no anchor date exists to resolve from, or if the time is vague (like "the following", "shortly after"), SKIP the event unless it is clearly important to the case.
 
 4. Identify the type of each event:
-   - "critical": Security breaches, unauthorized access, data theft, crimes, arrests, key discoveries
-   - "warning": Suspicious activity, policy violations, anomalies, threats, allegations
-   - "success": Successful operations, recoveries, resolutions, positive outcomes
-   - "info": General events, routine activities, observations, background context
-5. Extract actors — see KNOWN ENTITIES below for canonical names
-6. Extract artifacts (files, IP addresses, devices, evidence items, locations, documents)
-7. Extract MORE events rather than fewer — investigators need the full picture. Include:
-   - Communications (calls, emails, messages)
-   - Movements (arrivals, departures, sightings)
-   - Transactions (financial, ownership transfers)
-   - Actions (filed, submitted, created, deleted, modified)
-   - State changes (status updates, role changes)
+   - "critical": Crimes, arrests, key evidence discoveries, data theft, security breaches, major operational milestones
+   - "warning": Suspicious activity, anomalies, threats, policy violations
+   - "success": Successful operations, recoveries, warrants granted, positive outcomes
+   - "info": General investigative actions, communications, context, background movements
+5. Extract actors — see KNOWN ENTITIES below for canonical names.
+6. Extract artifacts (files, IP addresses, devices, evidence items, locations, documents).
+7. Strike a balance: Provide enough detail so investigators understand exactly how the case evolved step-by-step, but combine or skip excessively granular sub-events.
 
 ### KNOWN ENTITIES (use these EXACT canonical names in the "actors" field)
 {entity_context}

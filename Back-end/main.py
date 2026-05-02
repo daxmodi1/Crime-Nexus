@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, UploadFile, File, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 
 from core.rag_pipeline import get_rag_chain, ingest_into_vectorstore, get_vectorstore, sanitize_collection_name
@@ -486,6 +486,28 @@ async def list_session_files(session_id: str):
             files = disk_files
 
     return {"session_id": session_id, "files": files}
+
+
+@app.get("/sessions/{session_id}/files/download/{filename:path}")
+async def download_session_file(session_id: str, filename: str):
+    """Serve a raw evidence file for viewing/downloading."""
+    session = load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+        
+    session_upload_dir = os.path.join(UPLOAD_DIR, session_id)
+    
+    # Check root dir
+    file_path = os.path.join(session_upload_dir, filename)
+    if not os.path.exists(file_path):
+        # Check extracted dir
+        extract_path = os.path.join(session_upload_dir, "extracted", filename)
+        if os.path.exists(extract_path):
+            file_path = extract_path
+        else:
+            raise HTTPException(status_code=404, detail="File not found")
+            
+    return FileResponse(file_path)
 
 
 # --- RAG Chat ---

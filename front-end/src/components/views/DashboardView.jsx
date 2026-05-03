@@ -189,11 +189,11 @@ const DashboardView = ({ savedCases }) => {
   };
 
   return (
-    <div className="h-screen overflow-hidden bg-[#f6f7ed] text-[#1f1f1f] font-sans flex flex-row transition-all duration-300">
+    <div className="h-full overflow-hidden bg-white text-[#1f1f1f] font-sans flex flex-row transition-all duration-300">
       {/* Main Content Area */}
-      <div className="flex-1 px-6 py-6 flex flex-col min-h-0 relative z-10 transition-all duration-300">
+      <div className="flex-1 px-8 py-8 flex flex-col min-h-0 relative z-10 transition-all duration-300">
         <div className="flex mb-6 overflow-x-auto scrollbar-hide pb-2 justify-between items-start">
-          <div className="flex items-center bg-[#eaeae6] p-1.5 !rounded-full inline-flex">
+          <div className="flex items-center bg-[#f4f6f8] border border-[#e2e4e8]/50 p-1.5 !rounded-full inline-flex">
             {tabs.map(tab => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -203,8 +203,8 @@ const DashboardView = ({ savedCases }) => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center justify-center gap-2 px-5 py-2 !rounded-full text-[13px] font-semibold transition-all whitespace-nowrap flex-shrink-0 !border-none min-w-[100px] ${
                     isActive
-                      ? 'bg-white text-[#1f1f1f] shadow-[0_1px_3px_rgba(0,0,0,0.08)]'
-                      : 'text-[#71717a] hover:text-[#1f1f1f] hover:bg-[#f4f4f4]/50 !bg-transparent !shadow-none'
+                      ? 'bg-white text-[#1f1f1f] shadow-[0_4px_12px_rgba(0,0,0,0.06)]'
+                      : 'text-[#71717a] hover:text-[#1f1f1f] hover:bg-[#eaeae6]/50 !bg-transparent !shadow-none'
                   }`}
                 >
                   {isActive && <Icon size={16} className="text-[#1f1f1f]" />}

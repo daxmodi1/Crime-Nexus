@@ -17,7 +17,7 @@ const Sidebar = ({ savedCases, onDeleteCase, collapsed, onToggleCollapse, onLogo
 
   return (
     <div 
-      className={`${collapsed ? 'w-[68px]' : 'w-64'} bg-[#f4f4f4] border-r border-[#e8e8e4] flex flex-col h-full fixed left-0 top-0 bottom-0 z-40 transition-all duration-300 ease-in-out`}
+      className={`${collapsed ? 'w-[68px]' : 'w-64'} bg-white border border-[#e2e4e8] rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.06)] flex flex-col fixed left-4 top-4 bottom-4 z-40 transition-all duration-300 ease-in-out`}
     >
       {/* Logo + Collapse Toggle */}
       <div className={`py-4 w-full flex items-center border-b border-[#e8e8e4] ${collapsed ? 'justify-center px-0' : 'justify-between px-3'}`}>

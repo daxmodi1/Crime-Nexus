@@ -126,7 +126,7 @@ const AuthenticatedWorkspace = () => {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f6f7ed]">
+    <div className="flex h-[100dvh] overflow-hidden bg-[#eef0f4] text-[#111827]">
       <Sidebar 
         savedCases={savedCases}
         onDeleteCase={handleDeleteCase}
@@ -134,11 +134,17 @@ const AuthenticatedWorkspace = () => {
         onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
         onLogout={handleLogout}
       />
-      <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'ml-[68px]' : 'ml-64'}`}>
-        <Routes>
-          <Route path="/" element={<UploadView onUpload={handleUpload} />} />
-          <Route path="/:caseId" element={<DashboardView savedCases={savedCases} />} />
-        </Routes>
+      <div 
+        className={`flex-1 transition-all duration-300 flex flex-col pt-4 pr-4 pb-4 ${
+          sidebarCollapsed ? 'ml-[100px]' : 'ml-[288px]'
+        }`}
+      >
+        <div className="flex-1 w-full bg-white rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-[#e2e4e8] overflow-hidden">
+          <Routes>
+            <Route path="/" element={<UploadView onUpload={handleUpload} />} />
+            <Route path="/:caseId" element={<DashboardView savedCases={savedCases} />} />
+          </Routes>
+        </div>
       </div>
     </div>
   );
@@ -165,7 +171,7 @@ export default function App() {
   // Show a loading state until session is checked (undefined means checking, null means no session)
   if (session === undefined) {
     return (
-      <div className="h-screen bg-[#f6f7ed] flex items-center justify-center">
+      <div className="h-screen bg-[#eef0f4] flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center">
           <div className="w-10 h-10 border-2 border-[#1f1f1f] border-t-transparent rounded-full animate-spin mb-4"></div>
         </div>

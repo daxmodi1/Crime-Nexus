@@ -293,17 +293,10 @@ const TimelineTab = ({ sessionId, isNotesOpen, highlightTarget }) => {
                               md:w-12 md:flex md:justify-center md:pt-3 z-10">
                  <div className="relative">
                    <div className={`w-3.5 h-3.5 rounded-full border-2 bg-white transition-all duration-500 group-hover:scale-150 z-20 relative
-                     ${item.type === 'critical' ? 'border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.6)]' : 
-                       item.type === 'warning' ? 'border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.5)]' : 
-                       item.type === 'success' ? 'border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.5)]' : 
-                       'border-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]'}
-                   `}></div>
-                   {/* Glowing pulse behind the dot */}
-                   <div className={`absolute inset-0 rounded-full animate-ping opacity-75
-                     ${item.type === 'critical' ? 'bg-red-400' : 
-                       item.type === 'warning' ? 'bg-amber-400' : 
-                       item.type === 'success' ? 'bg-emerald-400' : 
-                       'bg-blue-400'}
+                     ${item.type === 'critical' ? 'border-red-500' : 
+                       item.type === 'warning' ? 'border-amber-500' : 
+                       item.type === 'success' ? 'border-emerald-500' : 
+                       'border-blue-500'}
                    `}></div>
                  </div>
               </div>

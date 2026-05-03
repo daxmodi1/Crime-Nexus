@@ -28,7 +28,7 @@ const UploadView = ({ onUpload }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f6f7ed] flex flex-col font-sans relative">
+    <div className="h-full bg-white flex flex-col font-sans relative">
       {/* Top Header */}
       <div className="pt-12 px-10 pb-6">
         <h1 className="text-3xl font-bold text-[#1f1f1f] tracking-tight">Case Workspace</h1>

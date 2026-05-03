@@ -6,33 +6,37 @@ const HeroView = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-white flex flex-col font-sans">
+    <div className="min-h-screen bg-white flex flex-col stack-sans-notch">
       {/* Navigation Bar */}
-      <nav className="w-full py-5 px-16 flex justify-between items-center border-b border-gray-100">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#1f1f1f] rounded-xl">
-            <Dna size={24} className="text-white" />
+      <nav className="w-full py-5 px-16 flex justify-between items-center">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 bg-[#102d25] rounded-[8px] flex items-center justify-center">
+            <Dna size={18} className="text-white" />
           </div>
-          <span className="font-extrabold text-xl tracking-tight text-[#1f1f1f]">
+          <span className="font-medium text-[19px] tracking-tight text-[#1f1f1f]">
             CrimeNexus
           </span>
         </div>
-        <div className="hidden md:flex items-center gap-10 text-[15px] text-[#444] font-semibold">
-          <button className="hover:text-black transition-colors">Product</button>
-          <button className="hover:text-black transition-colors">Why us</button>
-          <button className="hover:text-black transition-colors">Cases</button>
-          <button className="hover:text-black transition-colors">Blog</button>
+        <div className="hidden md:flex items-center gap-8 text-[15px] text-[#1f1f1f] font-medium">
+          <button className="hover:opacity-70 transition-opacity">Features</button>
+          <button className="hover:opacity-70 transition-opacity flex items-center gap-1.5">
+            Use cases
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#71717a]"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <button className="hover:opacity-70 transition-opacity">Pricing</button>
+          <button className="hover:opacity-70 transition-opacity">Blog</button>
+          <button className="hover:opacity-70 transition-opacity">How it works</button>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-6">
           <button
             onClick={() => navigate('/login')}
-            className="text-[15px] font-semibold text-[#1f1f1f] border border-[#d4d4d4] px-6 py-3 rounded-full hover:bg-gray-50 transition-colors"
+            className="text-[15px] font-medium text-[#1f1f1f] hover:opacity-70 transition-opacity"
           >
             Log in
           </button>
           <button
             onClick={() => navigate('/signup')}
-            className="text-[15px] font-semibold text-white bg-[#1f1f1f] px-6 py-3 rounded-full hover:bg-black transition-colors"
+            className="text-[15px] font-medium text-white bg-[#102d25] px-6 py-2.5 rounded-full hover:bg-[#0a1f19] transition-colors"
           >
             Get Started
           </button>
@@ -74,7 +78,7 @@ const HeroView = () => {
           </div>
 
           {/* Stats Row */}
-          <div className="flex items-start gap-10 pb-10 border-b border-gray-100 mb-8">
+          <div className="flex items-start gap-10 pb-10 mb-8">
             <div>
               <p className="text-[44px] font-black text-[#1a1a1a] tracking-tight leading-none">98.4%</p>
               <p className="text-[#888] text-[15px] mt-2">Evidence accuracy</p>
@@ -84,18 +88,6 @@ const HeroView = () => {
               <p className="text-[44px] font-black text-[#1a1a1a] tracking-tight leading-none">~10x</p>
               <p className="text-[#888] text-[15px] mt-2">Faster case analysis</p>
             </div>
-          </div>
-
-          {/* Star Rating */}
-          <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-1">
-              {[1, 2, 3, 4].map(i => (
-                <Star key={i} size={22} className="text-[#1a1a1a] fill-[#1a1a1a]" />
-              ))}
-              <Star size={22} className="text-[#1a1a1a]" />
-            </div>
-            <span className="text-[16px] font-extrabold text-[#1a1a1a]">4.8</span>
-            <span className="text-[15px] text-[#888]">Average user rating</span>
           </div>
         </div>
 

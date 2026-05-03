@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MessageSquare, FileText, Users, Clock, FolderOpen } from 'lucide-react';
+import { MessageSquare, FileText, Users, Clock, FolderOpen, PenTool } from 'lucide-react';
 import { getSessionMessages, sendChatMessage } from '../../utils/api';
 
 import ChatTab from '../tabs/ChatTab';
@@ -8,6 +8,7 @@ import EvidenceTab from '../tabs/EvidenceTab';
 import PeopleTab from '../tabs/PeopleTab';
 import TimelineTab from '../tabs/TimelineTab';
 import RawEvidenceTab from '../tabs/RawEvidenceTab';
+import NotesSidebar from '../ui/NotesSidebar';
 
 const DashboardView = ({ savedCases }) => {
   const { caseId } = useParams();
@@ -17,6 +18,8 @@ const DashboardView = ({ savedCases }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [isAiTyping, setIsAiTyping] = useState(false);
+  const [isNotesOpen, setIsNotesOpen] = useState(false);
+  const [highlightTarget, setHighlightTarget] = useState(null);
 
   // Find current case
   const currentCase = savedCases.find(c => c.sessionId === caseId || c.id === caseId);
@@ -149,11 +152,11 @@ const DashboardView = ({ savedCases }) => {
           />
         );
       case 'evidence':
-        return <EvidenceTab sessionId={sessionId} />;
+        return <EvidenceTab sessionId={sessionId} isNotesOpen={isNotesOpen} highlightTarget={highlightTarget} />;
       case 'people':
-        return <PeopleTab sessionId={sessionId} />;
+        return <PeopleTab sessionId={sessionId} isNotesOpen={isNotesOpen} highlightTarget={highlightTarget} />;
       case 'timeline':
-        return <TimelineTab sessionId={sessionId} />;
+        return <TimelineTab sessionId={sessionId} isNotesOpen={isNotesOpen} highlightTarget={highlightTarget} />;
       case 'raw_evidence':
         return <RawEvidenceTab sessionId={sessionId} />;
       default:
@@ -162,9 +165,10 @@ const DashboardView = ({ savedCases }) => {
   };
 
   return (
-    <div className="h-screen overflow-hidden bg-[#f6f7ed] text-[#1f1f1f] font-sans flex flex-col transition-all duration-300">
-      <div className="flex-1 px-6 py-6 flex flex-col min-h-0">
-        <div className="flex mb-6 overflow-x-auto scrollbar-hide pb-2">
+    <div className="h-screen overflow-hidden bg-[#f6f7ed] text-[#1f1f1f] font-sans flex flex-row transition-all duration-300">
+      {/* Main Content Area */}
+      <div className="flex-1 px-6 py-6 flex flex-col min-h-0 relative z-10 transition-all duration-300">
+        <div className="flex mb-6 overflow-x-auto scrollbar-hide pb-2 justify-between items-start">
           <div className="flex items-center bg-[#eaeae6] p-1.5 !rounded-full inline-flex">
             {tabs.map(tab => {
               const Icon = tab.icon;
@@ -185,12 +189,39 @@ const DashboardView = ({ savedCases }) => {
               );
             })}
           </div>
+
+          <button
+            onClick={() => setIsNotesOpen(prev => !prev)}
+            className={`flex items-center gap-2 px-4 py-2 !rounded-full text-[13px] font-semibold transition-all !border-none flex-shrink-0 ml-4 ${
+              isNotesOpen 
+                ? 'bg-[#1f1f1f] text-white shadow-md' 
+                : 'bg-white text-[#1f1f1f] border border-[#e8e8e4] hover:bg-[#f4f4f4] shadow-[0_1px_3px_rgba(0,0,0,0.08)]'
+            }`}
+          >
+            <PenTool size={16} />
+            Notes
+          </button>
         </div>
 
         <div className={`flex-1 min-h-0 ${activeTab !== 'chat' ? 'overflow-y-auto pr-2' : ''} scrollbar-thin scrollbar-thumb-[#d4d4cf] scrollbar-track-transparent`}>
           {renderTabContent()}
         </div>
       </div>
+
+      {/* Right Sidebar */}
+      {isNotesOpen && (
+        <NotesSidebar 
+          sessionId={sessionId} 
+          onClose={() => setIsNotesOpen(false)} 
+          onNavigate={(tabId, attachment) => {
+            setActiveTab(tabId);
+            setHighlightTarget(attachment);
+            // clear it after a bit so clicking the same thing again retriggers if needed, 
+            // but actually let's just let it be, or reset it.
+            setTimeout(() => setHighlightTarget(null), 1000);
+          }}
+        />
+      )}
     </div>
   );
 };

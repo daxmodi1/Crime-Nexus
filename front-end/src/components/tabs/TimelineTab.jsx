@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Filter, RefreshCw, Clock, AlertCircle, Zap, Users, X } from 'lucide-react';
+import { FileText, Filter, RefreshCw, Clock, AlertCircle, Zap, Users, X, GripVertical } from 'lucide-react';
 
 const API_BASE = 'http://localhost:8000';
 
-const TimelineTab = ({ sessionId }) => {
+const TimelineTab = ({ sessionId, isNotesOpen, highlightTarget }) => {
   const [timeline, setTimeline] = useState([]);
   const [loading, setLoading] = useState(false);
   const [extracting, setExtracting] = useState(false);
@@ -129,6 +129,20 @@ const TimelineTab = ({ sessionId }) => {
       fetchTimeline();
     }
   }, [sessionId, filterEntity]);
+
+  useEffect(() => {
+    if (highlightTarget && highlightTarget.type === 'timeline_event' && timeline.length > 0) {
+      const elementId = `timeline-${highlightTarget.timestamp}-${highlightTarget.title}`.replace(/[^a-zA-Z0-9_-]/g, '');
+      const el = document.getElementById(elementId);
+      if (el) {
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.add('ring-4', 'ring-yellow-400', 'ring-opacity-50');
+          setTimeout(() => el.classList.remove('ring-4', 'ring-yellow-400', 'ring-opacity-50'), 3000);
+        }, 100);
+      }
+    }
+  }, [highlightTarget, timeline]);
 
   // Show empty state when no timeline data
   if (timeline.length === 0 && !loading && !extracting) {
@@ -256,7 +270,11 @@ const TimelineTab = ({ sessionId }) => {
 
         <div className="space-y-8">
           {timeline.map((item) => (
-            <div key={item.id} className="relative pl-12 md:pl-0 md:flex group">
+            <div 
+              key={item.id} 
+              className="relative pl-12 md:pl-0 md:flex group rounded-2xl transition-all duration-500" 
+              id={`timeline-${item.timestamp}-${item.event}`.replace(/[^a-zA-Z0-9_-]/g, '')}
+            >
               
               {/* Date/Time Column */}
               <div className="mb-2 md:mb-0 md:w-36 md:text-right shrink-0 flex flex-col justify-start md:pt-1 md:pr-4">
@@ -281,7 +299,24 @@ const TimelineTab = ({ sessionId }) => {
 
               {/* Content Column */}
               <div className="flex-1">
-                <div className="bg-white p-4 rounded-2xl border border-[#e8e8e4] hover:border-[#d4d4cf] transition-all relative shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                <div 
+                  className={`bg-white p-4 rounded-2xl border border-[#e8e8e4] hover:border-[#d4d4cf] transition-all relative shadow-[0_1px_3px_rgba(0,0,0,0.04)] ${isNotesOpen ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                  draggable={isNotesOpen}
+                  onDragStart={(e) => {
+                    if (!isNotesOpen) return;
+                    e.dataTransfer.setData('application/json', JSON.stringify({
+                      type: 'timeline_event',
+                      title: item.event,
+                      timestamp: item.timestamp,
+                      source: item.sourceFile
+                    }));
+                  }}
+                >
+                  {isNotesOpen && (
+                    <div className="absolute top-4 right-4 text-[#d4d4cf] opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
+                      <GripVertical size={16} />
+                    </div>
+                  )}
                   {/* Triangle Pointer for Desktop */}
                   <div className="hidden md:block absolute top-3.5 -left-1.5 w-3 h-3 bg-white border-l border-b border-[#e8e8e4] transform rotate-45 group-hover:border-[#d4d4cf] transition-colors"></div>
 

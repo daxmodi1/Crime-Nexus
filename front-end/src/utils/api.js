@@ -110,6 +110,40 @@ async function getEntityTimeline(sessionId, entityName) {
   return await res.json();
 }
 
+async function getSessionNotes(sessionId) {
+  const res = await fetch(`${BASE_URL}/sessions/${sessionId}/notes`);
+  if (!res.ok) throw new Error('Failed to fetch notes');
+  return await res.json();
+}
+
+async function createNote(sessionId, noteData) {
+  const res = await fetch(`${BASE_URL}/sessions/${sessionId}/notes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(noteData)
+  });
+  if (!res.ok) throw new Error('Failed to create note');
+  return await res.json();
+}
+
+async function updateNote(sessionId, noteId, noteData) {
+  const res = await fetch(`${BASE_URL}/sessions/${sessionId}/notes/${noteId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(noteData)
+  });
+  if (!res.ok) throw new Error('Failed to update note');
+  return await res.json();
+}
+
+async function deleteNote(sessionId, noteId) {
+  const res = await fetch(`${BASE_URL}/sessions/${sessionId}/notes/${noteId}`, {
+    method: 'DELETE'
+  });
+  if (!res.ok) throw new Error('Failed to delete note');
+  return await res.json();
+}
+
 export { 
   BASE_URL, 
   createSession, 
@@ -124,4 +158,8 @@ export {
   detectAnomalies,
   getAnomalies,
   getEntityTimeline,
+  getSessionNotes,
+  createNote,
+  updateNote,
+  deleteNote,
 };

@@ -23,6 +23,10 @@ from utils.session_handler import (
     add_file_to_session,
     file_exists_in_session,
     delete_session,
+    get_session_notes,
+    add_note_to_session,
+    update_note,
+    delete_note,
 )
 from config.settings import settings
 
@@ -58,6 +62,22 @@ class SessionResponse(BaseModel):
 class MessageResponse(BaseModel):
     role: str
     content: str
+
+
+class NoteCreate(BaseModel):
+    content: str
+    tags: List[str] = []
+    attachments: List[dict] = []
+
+
+class NoteResponse(BaseModel):
+    id: str
+    session_id: str
+    content: str
+    tags: List[str] = []
+    attachments: List[dict] = []
+    created_at: str
+    updated_at: str
 
 
 # --- Lifespan for startup/shutdown ---
@@ -180,6 +200,55 @@ async def update_session(session_id: str, session_data: SessionCreate):
     
     save_session(session_id, {"title": session_data.title})
     return {"message": "Session updated", "session_id": session_id}
+
+
+# --- Notes Endpoints ---
+
+@app.get("/sessions/{session_id}/notes", response_model=List[NoteResponse])
+async def list_notes(session_id: str):
+    """Get all notes for a session."""
+    session = load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return get_session_notes(session_id)
+
+
+@app.post("/sessions/{session_id}/notes", response_model=NoteResponse)
+async def create_note(session_id: str, note_data: NoteCreate):
+    """Create a new note for a session."""
+    session = load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    note = add_note_to_session(
+        session_id=session_id,
+        content=note_data.content,
+        tags=note_data.tags,
+        attachments=note_data.attachments
+    )
+    return note
+
+
+@app.put("/sessions/{session_id}/notes/{note_id}")
+async def update_existing_note(session_id: str, note_id: str, note_data: NoteCreate):
+    """Update an existing note."""
+    success = update_note(
+        note_id=note_id,
+        content=note_data.content,
+        tags=note_data.tags,
+        attachments=note_data.attachments
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail="Note not found")
+    return {"message": "Note updated successfully"}
+
+
+@app.delete("/sessions/{session_id}/notes/{note_id}")
+async def delete_existing_note(session_id: str, note_id: str):
+    """Delete a note."""
+    success = delete_note(note_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Note not found")
+    return {"message": "Note deleted successfully"}
 
 
 # --- Evidence Upload & Ingestion ---

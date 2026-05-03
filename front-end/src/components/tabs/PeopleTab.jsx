@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Users, RefreshCw, Network, List, AlertCircle, Scan, AlertTriangle, ShieldAlert, ChevronDown, ChevronUp, Flag, X, Clock, FileText } from 'lucide-react';
+import { Users, RefreshCw, Network, List, AlertCircle, Scan, AlertTriangle, ShieldAlert, ChevronDown, ChevronUp, Flag, X, Clock, FileText, GripVertical } from 'lucide-react';
 import ForceGraph2D from 'react-force-graph-2d';
 import { extractEntities, getSessionGraph, getAnomalies, getEntityTimeline } from '../../utils/api';
 
@@ -16,7 +16,7 @@ const getSeverityStyle = (severity) => severityConfig[severity] || severityConfi
 
 
 /* ── EntityCard (list-view) ── */
-const EntityCard = ({ entity, relationships, getNodeColor, onViewTimeline, timelineData }) => {
+const EntityCard = ({ entity, relationships, getNodeColor, onViewTimeline, timelineData, isNotesOpen }) => {
   const [expanded, setExpanded] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
 
@@ -34,7 +34,25 @@ const EntityCard = ({ entity, relationships, getNodeColor, onViewTimeline, timel
   const tl = timelineData || { loading: false, error: null, events: [] };
 
   return (
-    <div className="bg-white border border-[#e8e8e4] rounded-2xl hover:bg-[#f6f7ed] hover:border-[#d4d4cf] transition-all overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <div 
+      id={`entity-${entity.name}`.replace(/[^a-zA-Z0-9_-]/g, '')}
+      className={`bg-white border border-[#e8e8e4] rounded-2xl hover:bg-[#f6f7ed] hover:border-[#d4d4cf] transition-all overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)] relative group ${isNotesOpen ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      draggable={isNotesOpen}
+      onDragStart={(e) => {
+        if (!isNotesOpen) return;
+        e.dataTransfer.setData('application/json', JSON.stringify({
+          type: 'entity',
+          name: entity.name,
+          entityType: entity.type,
+          anomalyScore: anomaly.score
+        }));
+      }}
+    >
+      {isNotesOpen && (
+        <div className="absolute top-4 right-4 text-[#d4d4cf] opacity-0 group-hover:opacity-100 transition-opacity">
+          <GripVertical size={16} />
+        </div>
+      )}
       {/* ── Top section ── */}
       <div className="p-5 pb-3">
         <div className="flex items-start justify-between mb-3">
@@ -194,7 +212,7 @@ const EntityCard = ({ entity, relationships, getNodeColor, onViewTimeline, timel
 };
 
 
-const PeopleTab = ({ sessionId }) => {
+const PeopleTab = ({ sessionId, isNotesOpen, highlightTarget }) => {
   const [graphData,        setGraphData]        = useState({ nodes: [], links: [] });
   const [loading,          setLoading]          = useState(false);
   const [extracting,       setExtracting]       = useState(false);
@@ -213,6 +231,23 @@ const PeopleTab = ({ sessionId }) => {
 
   // Entity timeline state for list view – keyed by entity name
   const [listTimelines, setListTimelines] = useState({});
+
+  useEffect(() => {
+    if (highlightTarget && highlightTarget.type === 'entity' && graphData.nodes.length > 0) {
+      if (viewMode !== 'list') {
+        setViewMode('list');
+      }
+      setTimeout(() => {
+        const elementId = `entity-${highlightTarget.name}`.replace(/[^a-zA-Z0-9_-]/g, '');
+        const el = document.getElementById(elementId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.add('ring-4', 'ring-yellow-400', 'ring-opacity-50');
+          setTimeout(() => el.classList.remove('ring-4', 'ring-yellow-400', 'ring-opacity-50'), 3000);
+        }
+      }, 100);
+    }
+  }, [highlightTarget, graphData, viewMode]);
 
   // Called when user clicks a node in the graph
   const handleNodeClick = useCallback(async (node) => {
@@ -667,8 +702,22 @@ const PeopleTab = ({ sessionId }) => {
           {selectedNode && (
             <div className="w-[45%] bg-white border border-[#e8e8e4] rounded-2xl ml-2 overflow-hidden flex flex-col shadow-[0_1px_3px_rgba(0,0,0,0.04)]" style={{ height: '600px' }}>
               {/* Panel header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8e8e4] shrink-0">
+              <div 
+                className={`flex items-center justify-between px-4 py-3 border-b border-[#e8e8e4] shrink-0 bg-[#fafafa] ${isNotesOpen ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                draggable={isNotesOpen}
+                onDragStart={(e) => {
+                  if (!isNotesOpen) return;
+                  e.dataTransfer.setData('application/json', JSON.stringify({
+                    type: 'entity',
+                    name: selectedNode.name,
+                    entityType: selectedNode.type,
+                    anomalyScore: selectedNode.anomaly?.score || 0
+                  }));
+                }}
+                title={isNotesOpen ? "Drag this panel header to Notes" : ""}
+              >
                 <div className="flex items-center gap-2">
+                  {isNotesOpen && <GripVertical size={14} className="text-[#d4d4cf] mr-1" />}
                   <div
                     className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
                     style={{ backgroundColor: getNodeColor(selectedNode) + '30', color: getNodeColor(selectedNode) }}
@@ -773,6 +822,7 @@ const PeopleTab = ({ sessionId }) => {
               getNodeColor={getNodeColor}
               onViewTimeline={handleListViewTimeline}
               timelineData={listTimelines[entity.name]}
+              isNotesOpen={isNotesOpen}
             />
           ))}
         </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Camera, FileText, MessageSquare, FolderOpen, AlertCircle, Zap, RefreshCw } from 'lucide-react';
+import { Camera, FileText, MessageSquare, FolderOpen, AlertCircle, Zap, RefreshCw, GripVertical } from 'lucide-react';
 import { getSessionFiles, detectAnomalies, getAnomalies } from '../../utils/api';
 import RelevanceBar from '../ui/RelevanceBar';
 import { AnomalyBadge, AnomalyDetailPanel } from '../ui/AnomalyBadge';
@@ -31,7 +31,7 @@ const getFileTypeInfo = (filename) => {
 
 // ── EvidenceTab ───────────────────────────────────────────────────────────────
 
-const EvidenceTab = ({ sessionId }) => {
+const EvidenceTab = ({ sessionId, isNotesOpen, highlightTarget }) => {
   const [evidence,     setEvidence]     = useState([]);
   const [loading,      setLoading]      = useState(false);
   const [error,        setError]        = useState(null);
@@ -74,6 +74,21 @@ const EvidenceTab = ({ sessionId }) => {
 
     fetchFiles();
   }, [sessionId]);
+
+
+  useEffect(() => {
+    if (highlightTarget && highlightTarget.type === 'evidence' && evidence.length > 0) {
+      const elementId = `evidence-${highlightTarget.filename}`.replace(/[^a-zA-Z0-9_-]/g, '');
+      const el = document.getElementById(elementId);
+      if (el) {
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.add('bg-yellow-100');
+          setTimeout(() => el.classList.remove('bg-yellow-100'), 3000);
+        }, 100);
+      }
+    }
+  }, [highlightTarget, evidence]);
 
   // ── Load cached anomaly results on session change ─────────────────────────
 
@@ -265,8 +280,25 @@ const EvidenceTab = ({ sessionId }) => {
 
                 return (
                   <React.Fragment key={file.id}>
-                    <tr className="hover:bg-[#f6f7ed]/60 transition-colors">
-                      <td className="px-5 py-3.5 font-medium text-[#1f1f1f] flex items-center gap-3">
+                    <tr 
+                      id={`evidence-${file.name}`.replace(/[^a-zA-Z0-9_-]/g, '')}
+                      className={`hover:bg-[#f6f7ed]/60 transition-colors duration-500 group ${isNotesOpen ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                      draggable={isNotesOpen}
+                      onDragStart={(e) => {
+                        if (!isNotesOpen) return;
+                        e.dataTransfer.setData('application/json', JSON.stringify({
+                          type: 'evidence',
+                          filename: file.name,
+                          file_type: file.type
+                        }));
+                      }}
+                    >
+                      <td className={`px-5 py-3.5 font-medium text-[#1f1f1f] flex items-center gap-3 relative ${isNotesOpen ? 'pl-8' : ''}`}>
+                        {isNotesOpen && (
+                          <div className="absolute left-2 text-[#d4d4cf] opacity-0 group-hover:opacity-100 transition-opacity">
+                            <GripVertical size={14} />
+                          </div>
+                        )}
                         <IconComponent size={16} className={file.color} />
                         {file.name}
                       </td>

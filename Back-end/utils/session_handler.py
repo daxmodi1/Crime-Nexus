@@ -45,6 +45,20 @@ def _init_database():
     except sqlite3.OperationalError:
         pass  # Column already exists
     
+    # Notes table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS notes (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            content TEXT NOT NULL,
+            tags TEXT DEFAULT '[]',
+            attachments TEXT DEFAULT '[]',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+        )
+    ''')
+    
     # Messages table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS messages (
@@ -368,6 +382,119 @@ def delete_session(session_id: str) -> bool:
     
     # Delete the session itself
     cursor.execute('DELETE FROM sessions WHERE id = ?', (session_id,))
+    
+    conn.commit()
+    conn.close()
+    return True
+
+# --- Notes Management ---
+
+def get_session_notes(session_id: str) -> List[Dict]:
+    """Retrieves all notes for a specific session."""
+    conn = _get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT id, session_id, content, tags, attachments, created_at, updated_at
+        FROM notes
+        WHERE session_id = ?
+        ORDER BY created_at DESC
+    ''', (session_id,))
+    
+    notes = []
+    for row in cursor.fetchall():
+        try:
+            tags = json.loads(row["tags"])
+        except (json.JSONDecodeError, TypeError):
+            tags = []
+            
+        try:
+            attachments = json.loads(row["attachments"])
+        except (json.JSONDecodeError, TypeError):
+            attachments = []
+            
+        notes.append({
+            "id": row["id"],
+            "session_id": row["session_id"],
+            "content": row["content"],
+            "tags": tags,
+            "attachments": attachments,
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"]
+        })
+        
+    conn.close()
+    return notes
+
+def add_note_to_session(session_id: str, content: str, tags: list = None, attachments: list = None) -> Dict:
+    """Adds a new note to the session."""
+    if tags is None: tags = []
+    if attachments is None: attachments = []
+    
+    note_id = f"note_{str(uuid.uuid4())[:8]}"
+    now = datetime.now().isoformat()
+    
+    conn = _get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        INSERT INTO notes (id, session_id, content, tags, attachments, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (note_id, session_id, content, json.dumps(tags), json.dumps(attachments), now, now))
+    
+    conn.commit()
+    conn.close()
+    
+    return {
+        "id": note_id,
+        "session_id": session_id,
+        "content": content,
+        "tags": tags,
+        "attachments": attachments,
+        "created_at": now,
+        "updated_at": now
+    }
+
+def update_note(note_id: str, content: str, tags: list = None, attachments: list = None) -> bool:
+    """Updates an existing note."""
+    if tags is None: tags = []
+    if attachments is None: attachments = []
+    
+    now = datetime.now().isoformat()
+    
+    conn = _get_connection()
+    cursor = conn.cursor()
+    
+    # Check if exists
+    cursor.execute('SELECT id FROM notes WHERE id = ?', (note_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return False
+        
+    cursor.execute('''
+        UPDATE notes
+        SET content = ?,
+            tags = ?,
+            attachments = ?,
+            updated_at = ?
+        WHERE id = ?
+    ''', (content, json.dumps(tags), json.dumps(attachments), now, note_id))
+    
+    conn.commit()
+    conn.close()
+    return True
+
+def delete_note(note_id: str) -> bool:
+    """Deletes a note by id."""
+    conn = _get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT id FROM notes WHERE id = ?', (note_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return False
+        
+    cursor.execute('DELETE FROM notes WHERE id = ?', (note_id,))
     
     conn.commit()
     conn.close()

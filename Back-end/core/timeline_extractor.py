@@ -273,11 +273,13 @@ def load_documents_for_timeline(file_path: str) -> List[Document]:
         List of LangChain Document objects
     """
     from core.ingestion import (
-        SafeDocLoader, SafeDocxLoader, SafePptxLoader, 
-        SafePptLoader, SafeRtfLoader, TextFileLoader,
-        SUPPORTED_EXTENSIONS
+        TextFileLoader, SUPPORTED_EXTENSIONS,
+        DOCLING_EXTENSIONS, TEXT_EXTENSIONS, DoclingLoader
     )
-    from langchain_community.document_loaders import PyPDFLoader
+    try:
+        from langchain_docling.loader import ExportType
+    except ImportError:
+        pass
     
     ext = os.path.splitext(file_path)[1].lower()
     
@@ -288,19 +290,12 @@ def load_documents_for_timeline(file_path: str) -> List[Document]:
     try:
         loader = None
         
-        if ext == ".pdf":
-            loader = PyPDFLoader(file_path)
-        elif ext == ".docx":
-            loader = SafeDocxLoader(file_path)
-        elif ext == ".doc":
-            loader = SafeDocLoader(file_path)
-        elif ext == ".pptx":
-            loader = SafePptxLoader(file_path)
-        elif ext == ".ppt":
-            loader = SafePptLoader(file_path)
-        elif ext == ".rtf":
-            loader = SafeRtfLoader(file_path)
-        elif ext in [".txt", ".csv", ".json", ".log"]:
+        if ext in DOCLING_EXTENSIONS:
+            if DoclingLoader is None:
+                print("[Timeline] Docling not installed")
+                return []
+            loader = DoclingLoader(file_path=file_path, export_type=ExportType.MARKDOWN)
+        elif ext in TEXT_EXTENSIONS:
             loader = TextFileLoader(file_path)
         else:
             return []
@@ -331,23 +326,32 @@ def extract_timeline_from_session(
         Dictionary with timeline events and metadata
     """
     session_upload_dir = os.path.join(upload_dir, session_id)
+    extracted_dir = os.path.join(session_upload_dir, "extracted")
     
-    if not os.path.exists(session_upload_dir):
-        return {"timeline": [], "message": "No upload directory found", "total_events": 0}
+    if not os.path.exists(extracted_dir):
+        return {"timeline": [], "message": "No extracted text found. Upload files first.", "total_events": 0}
     
     all_documents = []
     source_files = []
     
-    # Load all files from the session upload directory AND subdirectories
-    for root, dirs, files in os.walk(session_upload_dir):
+    from core.ingestion import TextFileLoader
+
+    # Load ONLY from the extracted directory
+    for root, dirs, files in os.walk(extracted_dir):
         for filename in files:
             file_path = os.path.join(root, filename)
-            if os.path.isfile(file_path):
-                docs = load_documents_for_timeline(file_path)
-                for doc in docs:
-                    all_documents.append(doc)
-                    source_files.append(filename)
-                print(f"[Timeline] Found file: {file_path}, loaded {len(docs)} docs")
+            if os.path.isfile(file_path) and file_path.endswith(".txt"):
+                try:
+                    # Strip the added '.txt' to get original filename for tracking
+                    original_name = filename[:-4] if filename.endswith(".txt") else filename
+                    loader = TextFileLoader(file_path)
+                    docs = loader.load()
+                    for doc in docs:
+                        all_documents.append(doc)
+                        source_files.append(original_name)
+                    print(f"[Timeline] Loaded extracted text for: {original_name}")
+                except Exception as e:
+                    print(f"[Timeline] Failed to load extracted text {filename}: {e}")
     
     if not all_documents:
         return {"timeline": [], "message": "No documents could be loaded", "total_events": 0}

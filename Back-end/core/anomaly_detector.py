@@ -520,48 +520,39 @@ def detect_anomalies_for_session(
       - summary stats
     """
     session_upload_dir = os.path.join(upload_dir, session_id)
+    extracted_dir = os.path.join(session_upload_dir, "extracted")
 
-    if not os.path.exists(session_upload_dir):
+    if not os.path.exists(extracted_dir):
         return {
             "document_anomalies": [],
             "person_anomalies": [],
-            "message": "No upload directory found for this session.",
+            "message": "No extracted text found. Upload files first.",
         }
 
-    from core.ingestion import (
-        SafeDocLoader, SafeDocxLoader, SafePptxLoader,
-        SafePptLoader, SafeRtfLoader, TextFileLoader,
-        SUPPORTED_EXTENSIONS,
-    )
-    from langchain_community.document_loaders import PyPDFLoader
+    from core.ingestion import TextFileLoader
 
     # ---- Load all documents ----
     file_docs:  Dict[str, str] = {}   # filename -> combined text
     file_types: Dict[str, str] = {}   # filename -> extension without dot
 
-    for root, _dirs, files in os.walk(session_upload_dir):
+    # Load ONLY from the extracted directory
+    for root, _dirs, files in os.walk(extracted_dir):
         for fname in sorted(files):
             fpath = os.path.join(root, fname)
-            ext   = os.path.splitext(fname)[1].lower()
-            if ext not in SUPPORTED_EXTENSIONS:
-                continue
-            try:
-                if   ext == ".pdf":  loader = PyPDFLoader(fpath)
-                elif ext == ".docx": loader = SafeDocxLoader(fpath)
-                elif ext == ".doc":  loader = SafeDocLoader(fpath)
-                elif ext == ".pptx": loader = SafePptxLoader(fpath)
-                elif ext == ".ppt":  loader = SafePptLoader(fpath)
-                elif ext == ".rtf":  loader = SafeRtfLoader(fpath)
-                else:                loader = TextFileLoader(fpath)
-
-                docs     = loader.load()
-                combined = " ".join(d.page_content for d in docs).strip()
-                if combined:
-                    file_docs[fname]  = combined
-                    file_types[fname] = ext.lstrip(".")
-                    print(f"[Anomaly] Loaded: {fname} ({len(combined)} chars)")
-            except Exception as e:
-                print(f"[Anomaly] Could not load {fname}: {e}")
+            if os.path.isfile(fpath) and fpath.endswith(".txt"):
+                try:
+                    loader = TextFileLoader(fpath)
+                    docs = loader.load()
+                    combined = " ".join(d.page_content for d in docs).strip()
+                    if combined:
+                        # Strip the added '.txt' to get original filename for tracking
+                        original_name = fname[:-4] if fname.endswith(".txt") else fname
+                        file_docs[original_name]  = combined
+                        # Since we read from extracted, we just mark it txt
+                        file_types[original_name] = "txt"
+                        print(f"[Anomaly] Loaded extracted text: {original_name} ({len(combined)} chars)")
+                except Exception as e:
+                    print(f"[Anomaly] Could not load extracted text {fname}: {e}")
 
     if not file_docs:
         return {

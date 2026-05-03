@@ -5,14 +5,12 @@ fastapi
 python-multipart
 pydantic-settings
 langchain-text-splitters
-langchain-google-genai
 langchain-groq
 langchain-chroma
 langchain-classic
 langchain-community
+langchain-docling
 langchain-experimental
-pymupdf
 langsmith
 langchain-ollama
-python-magic
-python-pptx
+docling

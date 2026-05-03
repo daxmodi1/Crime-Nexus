@@ -1,0 +1,158 @@
+City	  of	  Monterey,	  CA	  Police	  Department Detective	  Investigation	  Status	  Report
+
+| Date     | 10	                  |
+|          |   December	          |
+|          |   2009               |
+|----------|----------------------|
+| Time     | 5:00	                |
+|          |   PM                 |
+| Affiant  | Detective	           |
+|          |   Joe	               |
+|          |   Friday             |
+| Case	    | MT-­-2009-­-12-­-015 |
+|   Number |                      |
+| Report	  | 004                  |
+|   Number |                      |
+
+| Summary    |
+|------------|
+| Warrant	   |
+|   granted	 |
+|   for	     |
+|   USB	     |
+|   thumb	   |
+|   drive	   |
+|   owned	   |
+|   by	      |
+|   Jo.      |
+
+| Cause	           |
+|   for	           |
+|   Action         |
+|------------------|
+| Forensic	        |
+|   technologists	 |
+|   were	          |
+|   able	          |
+|   to	            |
+|   determine	     |
+|   from	          |
+|   the	           |
+|   computer	      |
+|   that	          |
+|   a	             |
+|   USB	           |
+|   thumb	         |
+|    drive	        |
+|   possibly	      |
+|   owned	         |
+|   by	            |
+|   Jo	            |
+|   was	           |
+|   used	          |
+|   to	            |
+|   connect	       |
+|   to	            |
+|   the	           |
+|   computer,	     |
+|   and	           |
+|   possibly	      |
+|   used	          |
+|    to	           |
+|   transfer	      |
+|   kitty	         |
+|   exploitation	  |
+|   material.      |
+
+| Action	                          |
+|   Taken                          |
+|----------------------------------|
+| With	                            |
+|   the	                           |
+|   assumption	                    |
+|   that	                          |
+|   the	                           |
+|   USB	                           |
+|   thumb	                         |
+|   drive	                         |
+|   is	                            |
+|   owned	                         |
+|   by	                            |
+|   Jo,	                           |
+|   we	                            |
+|   have	                          |
+|   requested	                     |
+|    and	                          |
+|   been	                          |
+|   granted	                       |
+|   a	                             |
+|   warrant	                       |
+|   to	                            |
+|   seize	                         |
+|   the	                           |
+|   USB	                           |
+|   drive.	                        |
+|   The	                           |
+|   warrant	                       |
+|   was	                           |
+|   based	                         |
+|   upon	                          |
+|    data	                         |
+|   found	                         |
+|   on	                            |
+|   the	                           |
+|   computer	                      |
+|   MT-­-2009-­-12-­-015-­-EV001.	 |
+|   The	                           |
+|   warrant	                       |
+|   has	                           |
+|   been	                          |
+|   logged	                        |
+|    as	                           |
+|   MT-­-2009-­-12-­-015-­-W001.   |
+
+| Outcome        |
+|----------------|
+| If	            |
+|   we	          |
+|   are	         |
+|   granted	     |
+|   permission	  |
+|   to	          |
+|   search	      |
+|   computers	   |
+|   at	          |
+|   M57	         |
+|   Patents,	    |
+|   we	          |
+|   will	        |
+|   execute	     |
+|    the	        |
+|   warrant	     |
+|   and	         |
+|   seize	       |
+|   the	         |
+|   thumb	       |
+|   drive	       |
+|   (if	         |
+|   it	          |
+|   is	          |
+|   in	          |
+|   Jo's	        |
+|   possession)	 |
+|   at	          |
+|   that	        |
+|   time.	       |
+|   If	          |
+|   not,	        |
+|    we	         |
+|   will	        |
+|   make	        |
+|   a	           |
+|   decision	    |
+|   about	       |
+|   when	        |
+|   to	          |
+|   execute	     |
+|   the	         |
+|   warrant.     |

@@ -1,0 +1,101 @@
+## State of California - County of Monterey Search Warrant and Affidavit
+
+## (Affidavit)
+
+Detective Joe Friday, swears under oath and declares under the penalty of perjury that the facts expressed in this Search Warrant, Affidavit, and the attached and incorporated statement of probable cause to believe and does believe that the property described below is seizable pursuant to Penal Code Section 1524, as indicated below, and is now located at the locations below. Wherefore, affiant requests that this Search Warrant be issued.
+
+Night Search Requested:
+
+- [ ]  Yes
+
+- [ ]  No Justification on page(s):\_\_\_
+
+Affiant's Signature: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_  Reviewed By: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+
+(After Being Sworn)                                 (Deputy Attorney General)
+
+## (Search Warrant)
+
+## THE PEOPLE OF THE STATE OF CALIFORNIA TO ANY SHERIFF, POLICEMAN OR PEACE OFFICER IN THE COUNTY OF MONTEREY:
+
+proof
+
+by affidavit having been made before me by \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_ that probable cause to believe that the property described herein and that it is lawfully seizable pursuant to Penal Code Section 1524, as indicate below:
+
+- [ ]  was stolen or embezzled
+
+- [ ]  was used as the means of committing a felony
+
+- [ ]  is possessed by a person with the intent to use it as a means of committing a public offense or is possessed by another to whom he or she may have delivered it for the purpose of concealing it or preventing its discovery
+
+- [ ]  tends to show that a felony has been committed or that a particular person has committed a felony
+
+- [ ]  tends to show that exploitation of a cat has occurred or is occurring
+
+## YOU ARE THEREFORE COMMANDED TO SEARCH THE PREMISES OF:
+
+## LOCATION
+
+Company: m57 Patents 123 Old Fisherman's Drive Monterey, CA 93940
+
+## MT-2009-12-015-W001 - SIMULATED WARRANT
+
+## FOR THE FOLLLOWING PROPERTY:
+
+1. The subscriber information, usernames and account information for any and all computers assigned to Jo Smith from November 13, 2009 to December 12, 2009.
+2. A RAM image for any and all computers assigned to Jo Smith from November 13, 2009 to December 12, 2009.
+3. A hard disk drive image for all computers assigned to Jo Smith from November 13, 2009 to December 12, 2009.
+4. All USB thumb drives in Jo Smith's possession, regardless of ownership.
+
+## FURTHER ORDERS
+
+It is further ordered that the records obtained pursuant to this warrant (with the exclusion of prohibited/illegal material) may be shared with M57 Patents and the civil division of the Office of the Attorney General for purposes of any civil action related to the unauthorized use of corporate equipment, intellectual property, or work product.
+
+The court orders that any items seized during the lawful service of this search warrant be disposed in accordance with the law, by the Monterey County Prosecutor, upon adjudication of the case. The officers serving the warrant are not authorized to return seized items to any known victim(s), as the items may contain illegal/prohibited material. Further application for such returns shall be issued by this court on evidence that the items contain no illegal/prohibited material, or that any such material has been destroyed, and also that the item itself serves no further material purpose in the investigation of illegal criminal or civil activity.
+
+If necessary, searching officers are authorized to employ the use of outside experts, acting under the direct control of the investigating officers, to access and preserve any computer data.
+
+AND TO SEIZE IT IF FOUND and bring forthwith before me, or this court, at he courthouse of this court. The Search Warrant and incorporated Affidavit was sworn as true and subscribed before me the \_\_\_\_ day of \_\_\_\_\_\_\_\_\_\_, 2009, at \_\_\_\_\_\_\_\_\_ A.M/P.M. Wherefore, I find probable cause for the issuance of this Search Warrant and do issue it.
+
+\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_                Night search approved: YES
+
+- [ ] 
+
+- [ ] NO 
+
+(Signature of Magistrate)                                               (Magistrate's initials)
+
+Executed By: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_ Date: \_\_\_\_\_\_\_\_\_\_\_\_ Time: \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+
+## Affidavit in Support of Search Warrant County of MONTEREY
+
+I, Joe Friday, your affiant, have been a full time peace officer for over eleven years. I am currently employed as a Detective in the City of Monterey Police Department.
+
+I have written and served several search warrants for digital evidence and am familiar with the type of data routinely stored by Internet Service Providers, Electronic Communications Service Providers, financial institutions and other businesses that maintain electronic records.
+
+On 09 December 2009, Aaron Greene contacted the City of Monterey Police Department by telephone regarding a computer he had purchased online. Greene (hereafter referred to as 'the purchaser') found the computer on Craigslist, and subsequently purchased it from Terry Johnson via a PayPal transaction. Terry Johnson delivered the computer to the purchaser's home.
+
+The purchaser discovered that the computer's hard drive had not been erased prior to the sale. After starting the computer, the purchaser found illegal pornographic images and videos stored on the hard drive, and contacted the City of Monterey Police Department. The purchaser agreed to surrender the computer to the City of Monterey Police Department. Two Police Officers were dispatched to the purchaser's home, at [ADDRESS REDACTED], where the hardware was acquired and transported to a forensics laboratory.
+
+Your affiant knows from training and experience that operating systems commonly used on business computer workstations log a variety of information and secondary data related to the dates and times at which particular files are copied, moved, and accessed. Additional information regarding the use of secondary storage devices (removable media or USB 'thumb drives') is also logged. Email, digital images, and external contacts associated with accounts on this computer will help identify the user associated with the illegal materials found on this machine.
+
+Additionally, the court should be aware that the CEO of 'm57.biz' (Terry Johnson's employer) has voluntarily agreed to release all electronic assets from the company in support of this investigation, including forensic copies of hard disks associated with all computers used by employees, live memory (RAM) images from machines running in the office, and copies of any other removable media located on-premises.
+
+I believe based on the aforementioned circumstances that the following felony crimes have been committed:
+
+311.3(a) - [Exploitation of a non-consenting entity].
+
+I pray a search warrant be issued for the following location:
+
+## MT-2009-12-015-W001 - SIMULATED WARRANT
+
+Company:
+
+m57 Patents 123 Old Fisherman's Drive Monterey, CA 93940
+
+## For the following property:
+
+1. The subscriber information, usernames and account information for any and all computers assigned to Jo Smith from November 13, 2009 to December 12, 2009.
+2. A RAM image for any and all computers assigned to Jo Smith from November 13, 2009 to December 12, 2009.
+3. A hard disk drive image for all computers assigned to Jo Smith from November 13, 2009 to December 12, 2009.
+4. All USB thumb drives in Jo Smith's possession, regardless of ownership.

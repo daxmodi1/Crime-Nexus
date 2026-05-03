@@ -1,0 +1,154 @@
+City	  of	  Monterey,	  CA	  Police	  Department Detective	  Investigation	  Status	  Report
+
+| Date     | 10	                  |
+|          |   December	          |
+|          |   2009               |
+|----------|----------------------|
+| Time     | 09:30	               |
+|          |   AM                 |
+| Affiant  | Detective	           |
+|          |   Joe	               |
+|          |   Friday             |
+| Case	    | MT-­-2009-­-12-­-015 |
+|   Number |                      |
+| Report	  | 002                  |
+|   Number |                      |
+
+| Summary          |
+|------------------|
+| Kitty	           |
+|   exploitation	  |
+|   found	         |
+|   on	            |
+|   computer,	     |
+|   investigation	 |
+|   proceeding.    |
+
+| Cause	                             |
+|   for	                             |
+|   Action                           |
+|------------------------------------|
+| Forensic	                          |
+|   tech	                            |
+|   identified	                      |
+|   several	                         |
+|   known	                           |
+|   kitty	                           |
+|   exploitation	                    |
+|   videos	                          |
+|   and	                             |
+|   images	                          |
+|   on	                              |
+|   the	                             |
+|    recovered	                      |
+|   computer	                        |
+|   (MT-­-2009-­-12-­-015-­-EV001),	 |
+|   and	                             |
+|   a	                               |
+|   possible	                        |
+|   owner.	                          |
+|   Based	                           |
+|   on	                              |
+|   the	                             |
+|    data	                           |
+|   recovered	                       |
+|   from	                            |
+|   the	                             |
+|   computer,	                       |
+|   we	                              |
+|   believe	                         |
+|   that	                            |
+|   the	                             |
+|   original	                        |
+|   owner	                           |
+|   of	                              |
+|   the	                             |
+|    computer	                       |
+|   was	                             |
+|   a	                               |
+|   local	                           |
+|   company,	                        |
+|   called	                          |
+|   M57	                             |
+|   Patents.	                        |
+|   The	                             |
+|   user	                            |
+|   of	                              |
+|   the	                             |
+|   computer	                        |
+|   was	                             |
+|    named	                          |
+|   Jo	                              |
+|   (no	                             |
+|   last	                            |
+|   name	                            |
+|   available).                      |
+
+| Action	          |
+|   Taken          |
+|------------------|
+| Further	         |
+|   investigation	 |
+|   is	            |
+|   necessary	     |
+|   to	            |
+|   determine	     |
+|   if	            |
+|   Jo	            |
+|   was	           |
+|   the	           |
+|   owner	         |
+|   of	            |
+|   the	           |
+|   files,	        |
+|   and	           |
+|    to	           |
+|   determine	     |
+|   if	            |
+|   any	           |
+|   further	       |
+|   incriminating	 |
+|   evidence	      |
+|   is	            |
+|   available.	    |
+|   From	          |
+|   business	      |
+|    records,	     |
+|   we	            |
+|   have	          |
+|   determined	    |
+|   that	          |
+|   the	           |
+|   owner	         |
+|   of	            |
+|   the	           |
+|   company	       |
+|   is	            |
+|   Pat	           |
+|   McGoo.	        |
+|   We	            |
+|   are	           |
+|    considering	  |
+|   contacting	    |
+|   McGoo,	        |
+|   rather	        |
+|   than	          |
+|   pursuing	      |
+|   a	             |
+|   warrant.       |
+
+| Outcome       |
+|---------------|
+| Discussion	   |
+|   with	       |
+|   Chief	      |
+|   of	         |
+|   Detectives	 |
+|   about	      |
+|   contacting	 |
+|   McGoo	      |
+|   and	        |
+|   pursuing	   |
+|   a	          |
+|    voluntary	 |
+|   search.     |

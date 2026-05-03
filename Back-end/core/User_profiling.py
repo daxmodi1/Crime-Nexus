@@ -395,11 +395,13 @@ def load_documents_for_graph(file_path: str) -> List[Document]:
         List of LangChain Document objects
     """
     from core.ingestion import (
-        SafeDocLoader, SafeDocxLoader, SafePptxLoader, 
-        SafePptLoader, SafeRtfLoader, TextFileLoader,
-        SUPPORTED_EXTENSIONS
+        TextFileLoader, SUPPORTED_EXTENSIONS,
+        DOCLING_EXTENSIONS, TEXT_EXTENSIONS, DoclingLoader
     )
-    from langchain_community.document_loaders import PyPDFLoader
+    try:
+        from langchain_docling.loader import ExportType
+    except ImportError:
+        pass
     
     ext = os.path.splitext(file_path)[1].lower()
     
@@ -410,19 +412,12 @@ def load_documents_for_graph(file_path: str) -> List[Document]:
     try:
         loader = None
         
-        if ext == ".pdf":
-            loader = PyPDFLoader(file_path)
-        elif ext == ".docx":
-            loader = SafeDocxLoader(file_path)
-        elif ext == ".doc":
-            loader = SafeDocLoader(file_path)
-        elif ext == ".pptx":
-            loader = SafePptxLoader(file_path)
-        elif ext == ".ppt":
-            loader = SafePptLoader(file_path)
-        elif ext == ".rtf":
-            loader = SafeRtfLoader(file_path)
-        elif ext in [".txt", ".csv", ".json", ".log"]:
+        if ext in DOCLING_EXTENSIONS:
+            if DoclingLoader is None:
+                print("[UserProfiling] Docling not installed")
+                return []
+            loader = DoclingLoader(file_path=file_path, export_type=ExportType.MARKDOWN)
+        elif ext in TEXT_EXTENSIONS:
             loader = TextFileLoader(file_path)
         else:
             return []
@@ -449,20 +444,27 @@ def extract_graph_from_session_files(session_id: str, upload_dir: str) -> Dict[s
         Graph data with nodes and edges
     """
     session_upload_dir = os.path.join(upload_dir, session_id)
+    extracted_dir = os.path.join(session_upload_dir, "extracted")
     
-    if not os.path.exists(session_upload_dir):
-        return {"nodes": [], "edges": [], "message": "No upload directory found"}
+    if not os.path.exists(extracted_dir):
+        return {"nodes": [], "edges": [], "message": "No extracted text found. Upload files first."}
     
     all_documents = []
     
-    # Load all files from the session upload directory AND subdirectories (like 'extracted')
-    for root, dirs, files in os.walk(session_upload_dir):
+    from core.ingestion import TextFileLoader
+
+    # Load ONLY from the extracted directory
+    for root, dirs, files in os.walk(extracted_dir):
         for filename in files:
             file_path = os.path.join(root, filename)
-            if os.path.isfile(file_path):
-                docs = load_documents_for_graph(file_path)
-                all_documents.extend(docs)
-                print(f"[UserProfiling] Found file: {file_path}, loaded {len(docs)} docs")
+            if os.path.isfile(file_path) and file_path.endswith(".txt"):
+                try:
+                    loader = TextFileLoader(file_path)
+                    docs = loader.load()
+                    all_documents.extend(docs)
+                    print(f"[UserProfiling] Loaded extracted text for: {filename}")
+                except Exception as e:
+                    print(f"[UserProfiling] Failed to load extracted text {filename}: {e}")
     
     if not all_documents:
         return {"nodes": [], "edges": [], "message": "No documents could be loaded"}

@@ -153,9 +153,27 @@ def load_session(session_id: str) -> Optional[Dict]:
         WHERE session_id = ? 
         ORDER BY timestamp ASC
     ''', (session_id,))
-    
-    messages = [{"role": row["role"], "content": row["content"]} 
-                for row in cursor.fetchall()]
+
+    messages = []
+    for row in cursor.fetchall():
+        content_raw = row["content"]
+        sources = []
+        content_text = content_raw
+        # Try to parse assistant payloads saved as JSON {"text":..., "sources":[...]}
+        try:
+            parsed = json.loads(content_raw)
+            if isinstance(parsed, dict) and "text" in parsed:
+                content_text = parsed.get("text", "")
+                sources = parsed.get("sources", []) or []
+        except (json.JSONDecodeError, TypeError):
+            # content is plain text
+            pass
+
+        messages.append({
+            "role": row["role"],
+            "content": content_text,
+            "sources": sources
+        })
     
     # Get files
     cursor.execute('''
@@ -495,6 +513,22 @@ def delete_note(note_id: str) -> bool:
         return False
         
     cursor.execute('DELETE FROM notes WHERE id = ?', (note_id,))
+    
+    conn.commit()
+    conn.close()
+    return True
+
+def clear_session_messages(session_id: str) -> bool:
+    """Deletes all messages for a specific session."""
+    conn = _get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT id FROM sessions WHERE id = ?', (session_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return False
+        
+    cursor.execute('DELETE FROM messages WHERE session_id = ?', (session_id,))
     
     conn.commit()
     conn.close()

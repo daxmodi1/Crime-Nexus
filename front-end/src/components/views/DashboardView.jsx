@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MessageSquare, FileText, Users, Clock, FolderOpen, PenTool } from 'lucide-react';
-import { getSessionMessages, sendChatMessage } from '../../utils/api';
+import { getSessionMessages, sendChatMessage, clearSessionMessages } from '../../utils/api';
 
 import ChatTab from '../tabs/ChatTab';
 import EvidenceTab from '../tabs/EvidenceTab';
@@ -20,6 +20,7 @@ const DashboardView = ({ savedCases }) => {
   const [isAiTyping, setIsAiTyping] = useState(false);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [highlightTarget, setHighlightTarget] = useState(null);
+  const [deepResearch, setDeepResearch] = useState(false);
 
   // Find current case
   const currentCase = savedCases.find(c => c.sessionId === caseId || c.id === caseId);
@@ -47,6 +48,7 @@ const DashboardView = ({ savedCases }) => {
             id: idx + 1,
             sender: msg.role === 'user' ? 'You' : 'AI Assistant',
             text: msg.content,
+            sources: msg.sources || [],
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           }));
           setMessages(formatted);
@@ -55,6 +57,7 @@ const DashboardView = ({ savedCases }) => {
             id: 1,
             sender: 'AI Assistant',
             text: `Case **${currentCase.title}** loaded. Upload evidence files to begin analysis, then ask me questions about the case.`,
+            sources: [],
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           }]);
         }
@@ -92,7 +95,7 @@ const DashboardView = ({ savedCases }) => {
         const sessionId = currentCase?.sessionId || currentCase?.id;
         if (!sessionId) throw new Error('No session available for chat');
 
-        const resp = await sendChatMessage(sessionId, userMsg.text);
+        const resp = await sendChatMessage(sessionId, userMsg.text, deepResearch);
 
         const aiMsg = {
           id: Date.now() + 1,
@@ -116,6 +119,24 @@ const DashboardView = ({ savedCases }) => {
         setIsAiTyping(false);
       }
     })();
+  };
+
+  const handleClearChat = async () => {
+    if (!window.confirm("Are you sure you want to clear the chat history?")) return;
+    try {
+      const sessionId = currentCase?.sessionId || currentCase?.id;
+      if (!sessionId) return;
+      await clearSessionMessages(sessionId);
+      setMessages([{
+        id: Date.now(),
+        sender: 'AI Assistant',
+        text: 'Chat cleared. Ask me questions about the case.',
+        sources: [],
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+    } catch (err) {
+      console.error('Failed to clear chat:', err);
+    }
   };
 
   if (!currentCase) {
@@ -149,6 +170,9 @@ const DashboardView = ({ savedCases }) => {
             setNewMessage={setNewMessage}
             isAiTyping={isAiTyping}
             onSendMessage={handleSendMessage}
+            deepResearch={deepResearch}
+            setDeepResearch={setDeepResearch}
+            onClearChat={handleClearChat}
           />
         );
       case 'evidence':

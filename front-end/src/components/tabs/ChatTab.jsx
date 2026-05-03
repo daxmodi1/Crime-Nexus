@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { Bot, Send } from 'lucide-react';
+import React, { useRef, useEffect, useState } from 'react';
+import { Bot, Send, Globe, FileText, Trash2, Plus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 // Markdown message component for AI responses
@@ -23,8 +23,9 @@ const MarkdownMessage = ({ content }) => {
   );
 };
 
-const ChatTab = ({ messages, newMessage, setNewMessage, isAiTyping, onSendMessage }) => {
+const ChatTab = ({ messages, newMessage, setNewMessage, isAiTyping, onSendMessage, deepResearch, setDeepResearch, onClearChat }) => {
   const messagesEndRef = useRef(null);
+  const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -77,14 +78,41 @@ const ChatTab = ({ messages, newMessage, setNewMessage, isAiTyping, onSendMessag
 
             {/* Sources (if available) */}
             {msg.sources && msg.sources.length > 0 && (
-              <div className="mt-2 text-xs text-[#a1a19b]">
-                <span className="block mb-1">Sources:</span>
-                <div className="flex flex-wrap gap-1">
-                  {msg.sources.map((src, idx) => (
-                    <span key={idx} className="bg-[#f4f4f4] px-2 py-1 rounded-lg border border-[#e8e8e4] text-[#71717a]">
-                      {src}
-                    </span>
-                  ))}
+              <div className="mt-4 w-full">
+                <span className="block mb-2 text-[11px] font-semibold text-[#a1a19b] uppercase tracking-wider">Reference Sources</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {msg.sources.map((src, idx) => {
+                    const isWeb = src.startsWith('Web: ');
+                    const sourceText = isWeb ? src.replace('Web: ', '') : src;
+                    const url = isWeb ? sourceText : null;
+                    
+                    return url ? (
+                      <a 
+                        key={idx} 
+                        href={url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex flex-col p-4 bg-white border border-[#e8e8e4] hover:border-[#1f1f1f] hover:shadow-md transition-all rounded-xl cursor-pointer group no-underline"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <Globe size={16} className="text-[#a1a19b] group-hover:text-[#1f1f1f] transition-colors" />
+                          <span className="text-xs font-semibold text-[#1f1f1f]">Web Search</span>
+                        </div>
+                        <span className="text-xs text-[#71717a] break-all line-clamp-2">{sourceText}</span>
+                      </a>
+                    ) : (
+                      <div 
+                        key={idx} 
+                        className="flex flex-col p-4 bg-white border border-[#e8e8e4] rounded-xl"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <FileText size={16} className="text-[#a1a19b]" />
+                          <span className="text-xs font-semibold text-[#1f1f1f]">Evidence File</span>
+                        </div>
+                        <span className="text-xs text-[#71717a] truncate" title={sourceText}>{sourceText}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -110,23 +138,89 @@ const ChatTab = ({ messages, newMessage, setNewMessage, isAiTyping, onSendMessag
       </div>
 
       {/* Input Area */}
-      <div className="w-full flex justify-center pb-4 px-4">
-        <form onSubmit={onSendMessage} className="w-full max-w-4xl flex gap-3 relative">
-        <input 
-          type="text" 
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Ask about evidence, patterns, or connections..."
-          className="flex-1 bg-white border border-[#e8e8e4] rounded-full px-6 py-3.5 text-sm text-[#1f1f1f] focus:outline-none focus:border-[#1f1f1f] focus:ring-2 focus:ring-[#1f1f1f]/10 transition-all placeholder-[#a1a19b] shadow-sm"
-          disabled={isAiTyping}
-        />
-        <button 
-          type="submit" 
-          disabled={isAiTyping}
-          className="bg-[#1f1f1f] hover:bg-[#3a3a3a] disabled:bg-[#d4d4cf] disabled:text-[#a1a19b] text-white p-3.5 px-4 rounded-full transition-all flex-shrink-0 border-0 shadow-sm"
-        >
-          <Send size={18} />
-        </button>
+      <div className="w-full flex justify-center pb-4 px-4 relative z-50">
+        <form onSubmit={onSendMessage} className="w-full max-w-4xl flex gap-2 relative">
+          
+          <div className="flex-1 bg-white border border-[#e8e8e4] rounded-[24px] flex items-center px-2 py-1.5 focus-within:border-[#1f1f1f] focus-within:ring-2 focus-within:ring-[#1f1f1f]/10 transition-all shadow-sm">
+            {/* Plus Button & Dropdown */}
+            <div className="relative flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowMenu(!showMenu)}
+                className={`p-2 rounded-full transition-colors ml-1 ${showMenu ? 'bg-[#f4f4f4] text-[#1f1f1f]' : 'text-[#a1a19b] hover:bg-[#f4f4f4] hover:text-[#1f1f1f]'}`}
+                title="More options"
+              >
+                <Plus size={20} className={`transition-transform duration-200 ${showMenu ? 'rotate-45' : ''}`} />
+              </button>
+              
+              {showMenu && (
+                <>
+                  {/* Backdrop to close menu */}
+                  <div 
+                    className="fixed inset-0 z-10" 
+                    onClick={() => setShowMenu(false)}
+                  ></div>
+                  
+                  {/* Dropdown Menu */}
+                  <div className="absolute bottom-[calc(100%+16px)] left-0 w-64 bg-white border border-[#e8e8e4] rounded-2xl shadow-[0_-4px_24px_rgba(0,0,0,0.08)] z-20 py-2 flex flex-col">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeepResearch(!deepResearch);
+                        setShowMenu(false);
+                      }}
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-[#f4f4f4] transition-colors text-left"
+                    >
+                      <Globe size={16} className={deepResearch ? 'text-blue-600' : 'text-[#71717a]'} />
+                      <div className="flex flex-col">
+                        <span className={`font-semibold ${deepResearch ? 'text-[#1f1f1f]' : 'text-[#3a3a3a]'}`}>
+                          Deep Research {deepResearch && '(On)'}
+                        </span>
+                        <span className="text-xs text-[#a1a19b]">Search web for extra context</span>
+                      </div>
+                    </button>
+                    
+                    <div className="h-px w-full bg-[#f4f4f4] my-1"></div>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClearChat();
+                        setShowMenu(false);
+                      }}
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-[#ffebee] text-[#71717a] hover:text-red-600 transition-colors text-left"
+                    >
+                      <Trash2 size={16} />
+                      <span className="font-semibold">Clear Chat History</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Actual Input */}
+            <input 
+              type="text" 
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Ask about evidence, patterns, or connections..."
+              className="flex-1 bg-transparent border-none px-4 py-2.5 text-sm text-[#1f1f1f] focus:outline-none focus:ring-0 placeholder-[#a1a19b]"
+              disabled={isAiTyping}
+            />
+
+            {/* Send Button */}
+            <button 
+              type="submit" 
+              disabled={isAiTyping || !newMessage.trim()}
+              className={`p-2.5 rounded-full transition-all flex-shrink-0 border-0 ${
+                newMessage.trim() && !isAiTyping 
+                  ? 'bg-[#1f1f1f] hover:bg-[#3a3a3a] text-white shadow-sm' 
+                  : 'bg-[#f4f4f4] text-[#a1a19b]'
+              }`}
+            >
+              <Send size={18} />
+            </button>
+          </div>
         </form>
       </div>
     </div>

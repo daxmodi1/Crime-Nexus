@@ -14,3 +14,4 @@ langchain-experimental
 langsmith
 langchain-ollama
 docling
+tavily-python

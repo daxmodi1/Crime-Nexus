@@ -1,4 +1,5 @@
 import os
+import json
 import hashlib
 import shutil
 from datetime import datetime
@@ -27,6 +28,7 @@ from utils.session_handler import (
     add_note_to_session,
     update_note,
     delete_note,
+    clear_session_messages,
 )
 from config.settings import settings
 
@@ -40,6 +42,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 class ChatRequest(BaseModel):
     session_id: str
     message: str
+    deep_research: bool = False
 
 
 class ChatResponse(BaseModel):
@@ -595,11 +598,35 @@ async def chat_with_evidence(request: ChatRequest):
     vectorstore = get_vectorstore(request.session_id)
     
     try:
+        query_text = request.message
+        tavily_sources = []
+        
+        # If deep research is requested, fetch web context using Tavily
+        if request.deep_research and settings.TAVILY_API_KEY:
+            try:
+                from langchain_community.tools.tavily_search import TavilySearchResults
+                import os
+                
+                # Make sure the environment variable is set for the wrapper
+                os.environ["TAVILY_API_KEY"] = settings.TAVILY_API_KEY
+                tavily_tool = TavilySearchResults(max_results=3)
+                search_results = tavily_tool.invoke({"query": request.message})
+                
+                if search_results and isinstance(search_results, list):
+                    web_context = "\n".join([f"- {res['content']} (Source: {res['url']})" for res in search_results if 'content' in res and 'url' in res])
+                    if web_context:
+                        query_text = f"USER QUERY: {request.message}\n\n[DEEP RESEARCH WEB CONTEXT]\n{web_context}"
+                        # Save the URLs to add to the sources list
+                        tavily_sources = [f"Web: {res['url']}" for res in search_results if 'url' in res]
+                        print(f"[Chat] Appended deep research context to query.")
+            except Exception as te:
+                print(f"[Chat] Warning: Tavily deep research failed: {te}")
+
         # Get RAG chain for this session
         qa_chain = get_rag_chain(request.session_id)
         
-        # Run the query
-        result = qa_chain.invoke({"query": request.message})
+        # Run the query (using the potentially enriched query_text)
+        result = qa_chain.invoke({"query": query_text})
         
         # Extract response and sources
         response_text = result.get("result", "I couldn't generate a response.")
@@ -611,9 +638,20 @@ async def chat_with_evidence(request: ChatRequest):
             for doc in source_docs
         ]))
         
-        # Save messages to session
+        # Append Tavily web sources if any
+        if tavily_sources:
+            sources.extend(tavily_sources)
+        
+        # Save messages to session (save the ORIGINAL message to the session log)
         add_message_to_session(request.session_id, "user", request.message)
-        add_message_to_session(request.session_id, "assistant", response_text)
+
+        # Save assistant response including sources as a JSON payload so
+        # the frontend can persist and later render reference cards.
+        assistant_payload = json.dumps({
+            "text": response_text,
+            "sources": sources
+        })
+        add_message_to_session(request.session_id, "assistant", assistant_payload)
         
         return ChatResponse(response=response_text, sources=sources)
         
@@ -636,6 +674,16 @@ async def get_session_messages(session_id: str):
         raise HTTPException(status_code=404, detail="Session not found")
     
     return session.get("messages", [])
+
+@app.delete("/sessions/{session_id}/messages")
+async def delete_session_messages(session_id: str):
+    """Clear all messages from a session."""
+    session = load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    clear_session_messages(session_id)
+    return {"message": "Chat cleared successfully", "session_id": session_id}
 
 
 # --- Utility Endpoints ---

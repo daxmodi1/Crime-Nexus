@@ -269,38 +269,49 @@ const TimelineTab = ({ sessionId, isNotesOpen, highlightTarget }) => {
                         md:left-42"></div>
 
         <div className="space-y-8">
-          {timeline.map((item) => (
+          {timeline.map((item, idx) => (
             <div 
               key={item.id} 
-              className="relative pl-12 md:pl-0 md:flex group rounded-2xl transition-all duration-500" 
+              className="relative pl-12 md:pl-0 md:flex group rounded-2xl transition-all duration-700 ease-out animate-fade-in-up" 
+              style={{ animationDelay: `${idx * 100}ms` }}
               id={`timeline-${item.timestamp}-${item.event}`.replace(/[^a-zA-Z0-9_-]/g, '')}
             >
               
               {/* Date/Time Column */}
-              <div className="mb-2 md:mb-0 md:w-36 md:text-right shrink-0 flex flex-col justify-start md:pt-1 md:pr-4">
-                <span className="font-mono text-xs text-[#a1a19b] block">
+              <div className="mb-2 md:mb-0 md:w-36 md:text-right shrink-0 flex flex-col justify-start md:pt-2 md:pr-6">
+                <span className="font-mono text-[11px] uppercase tracking-widest text-[#a1a19b] block mb-1">
                   {item.timestamp.split(' ')[0]}
                 </span>
-                <span className="font-mono text-sm font-semibold text-[#1f1f1f]">
+                <span className="font-mono text-base font-bold bg-clip-text text-transparent bg-gradient-to-br from-[#1f1f1f] to-[#71717a]">
                   {item.timestamp.split(' ')[1] || item.timestamp.split('T')[1]?.slice(0,8) || ''}
                 </span>
               </div>
 
               {/* Dot Column - Centered on the Line */}
-              <div className="absolute left-4 top-2 -translate-x-1/2 
+              <div className="absolute left-4 top-3 -translate-x-1/2 
                               md:relative md:left-auto md:top-auto md:translate-x-0
-                              md:w-12 md:flex md:justify-center md:pt-2">
-                 <div className={`w-3 h-3 rounded-full border-2 bg-white transition-all duration-300 group-hover:scale-125 z-10
-                   ${item.type === 'critical' ? 'border-red-500 shadow-[0_0_8px_rgba(239,68,68,0.3)] bg-red-50' : 
-                     item.type === 'warning' ? 'border-amber-500 bg-amber-50' : 
-                     item.type === 'success' ? 'border-emerald-500 bg-emerald-50' : 'border-[#1f1f1f] bg-[#1f1f1f]'}
-                 `}></div>
+                              md:w-12 md:flex md:justify-center md:pt-3 z-10">
+                 <div className="relative">
+                   <div className={`w-3.5 h-3.5 rounded-full border-2 bg-white transition-all duration-500 group-hover:scale-150 z-20 relative
+                     ${item.type === 'critical' ? 'border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.6)]' : 
+                       item.type === 'warning' ? 'border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.5)]' : 
+                       item.type === 'success' ? 'border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.5)]' : 
+                       'border-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]'}
+                   `}></div>
+                   {/* Glowing pulse behind the dot */}
+                   <div className={`absolute inset-0 rounded-full animate-ping opacity-75
+                     ${item.type === 'critical' ? 'bg-red-400' : 
+                       item.type === 'warning' ? 'bg-amber-400' : 
+                       item.type === 'success' ? 'bg-emerald-400' : 
+                       'bg-blue-400'}
+                   `}></div>
+                 </div>
               </div>
 
               {/* Content Column */}
               <div className="flex-1">
                 <div 
-                  className={`bg-white p-4 rounded-2xl border border-[#e8e8e4] hover:border-[#d4d4cf] transition-all relative shadow-[0_1px_3px_rgba(0,0,0,0.04)] ${isNotesOpen ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                  className={`relative p-5 rounded-2xl transition-all duration-500 group-hover:-translate-y-1 group-hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] bg-white border border-[#e8e8e4] overflow-hidden ${isNotesOpen ? 'cursor-grab active:cursor-grabbing' : ''}`}
                   draggable={isNotesOpen}
                   onDragStart={(e) => {
                     if (!isNotesOpen) return;
@@ -312,58 +323,71 @@ const TimelineTab = ({ sessionId, isNotesOpen, highlightTarget }) => {
                     }));
                   }}
                 >
+                  {/* Subtle Gradient Overlay */}
+                  <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none bg-gradient-to-br from-transparent to-white/50 ${
+                     item.type === 'critical' ? 'via-red-50/30' : 
+                     item.type === 'warning' ? 'via-amber-50/30' : 
+                     item.type === 'success' ? 'via-emerald-50/30' : 
+                     'via-blue-50/30'
+                  }`}></div>
+
                   {isNotesOpen && (
                     <div className="absolute top-4 right-4 text-[#d4d4cf] opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
                       <GripVertical size={16} />
                     </div>
                   )}
-                  {/* Triangle Pointer for Desktop */}
-                  <div className="hidden md:block absolute top-3.5 -left-1.5 w-3 h-3 bg-white border-l border-b border-[#e8e8e4] transform rotate-45 group-hover:border-[#d4d4cf] transition-colors"></div>
 
-                  <div className="flex justify-between items-start mb-2">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase
-                      ${item.type === 'critical' ? 'bg-red-500/10 text-red-400' : 
-                        item.type === 'warning' ? 'bg-yellow-500/10 text-yellow-400' : 
-                        item.type === 'success' ? 'bg-emerald-500/10 text-emerald-400' :
-                        'bg-blue-500/10 text-blue-400'}
+                  <div className="flex justify-between items-start mb-3 relative z-10">
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider shadow-sm backdrop-blur-md
+                      ${item.type === 'critical' ? 'bg-red-500 text-white border border-red-600/20' : 
+                        item.type === 'warning' ? 'bg-amber-500 text-white border border-amber-600/20' : 
+                        item.type === 'success' ? 'bg-emerald-500 text-white border border-emerald-600/20' :
+                        'bg-blue-500 text-white border border-blue-600/20'}
                     `}>{item.type}</span>
+                    
                     {/* Confidence Badge */}
-                    <span className={`text-[10px] px-2 py-0.5 rounded
-                      ${item.confidence === 'high' ? 'bg-emerald-500/10 text-emerald-400' : 
-                        item.confidence === 'medium' ? 'bg-yellow-500/10 text-yellow-400' :
-                        'bg-zinc-700/50 text-zinc-400'}
+                    <span className={`text-[10px] px-2.5 py-1 rounded-md font-medium border backdrop-blur-md
+                      ${item.confidence === 'high' ? 'bg-emerald-50/80 text-emerald-700 border-emerald-200' : 
+                        item.confidence === 'medium' ? 'bg-amber-50/80 text-amber-700 border-amber-200' :
+                        'bg-zinc-50/80 text-zinc-700 border-zinc-200'}
                     `}>
                       {item.confidence} confidence
                     </span>
                   </div>
                   
-                  <p className="text-[#1f1f1f] font-medium text-lg mb-2">{item.event}</p>
+                  <p className="text-[#1f1f1f] font-semibold text-[17px] leading-relaxed mb-4 relative z-10 group-hover:text-blue-900 transition-colors duration-300">
+                    {item.event}
+                  </p>
                   
-                  {/* Show actors if available */}
-                  {item.actors && item.actors.length > 0 && (
-                    <div className="mb-2 flex flex-wrap gap-1">
-                      {item.actors.map((actor, i) => (
-                        <span key={i} className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-lg border border-purple-200">
-                          {actor}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <div className="space-y-3 relative z-10">
+                    {/* Show actors if available */}
+                    {item.actors && item.actors.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 items-center">
+                        <Users size={12} className="text-purple-400 mr-1" />
+                        {item.actors.map((actor, i) => (
+                          <span key={i} className="text-xs bg-gradient-to-r from-purple-50 to-fuchsia-50 text-purple-700 px-2.5 py-1 rounded-md border border-purple-100 font-medium hover:scale-105 transition-transform cursor-default shadow-sm">
+                            {actor}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Show artifacts if available */}
+                    {item.artifacts && item.artifacts.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 items-center">
+                        <Zap size={12} className="text-[#a1a19b] mr-1" />
+                        {item.artifacts.map((artifact, i) => (
+                          <span key={i} className="text-xs font-mono bg-[#f4f4f4] text-[#3a3a3a] px-2.5 py-1 rounded-md border border-[#e8e8e4] hover:bg-white hover:shadow-sm transition-all cursor-default">
+                            {artifact}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   
-                  {/* Show artifacts if available */}
-                  {item.artifacts && item.artifacts.length > 0 && (
-                    <div className="mb-2 flex flex-wrap gap-1">
-                      {item.artifacts.map((artifact, i) => (
-                        <span key={i} className="text-xs font-mono bg-[#f4f4f4] text-[#1f1f1f] px-2 py-0.5 rounded-lg border border-[#e8e8e4]">
-                          {artifact}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center gap-2 text-xs text-[#a1a19b] bg-[#f6f7ed] p-2 rounded-xl border border-[#e8e8e4]">
-                     <FileText size={12} className="text-[#71717a]"/>
-                     <span className="font-mono">Source: {item.sourceFile}</span>
+                  <div className="mt-4 flex items-center gap-2 text-[11px] text-[#a1a19b] bg-[#fafafa] p-2.5 rounded-lg border border-[#e8e8e4] group-hover:border-blue-200 group-hover:bg-blue-50/50 transition-colors relative z-10">
+                     <FileText size={12} className="text-[#71717a] group-hover:text-blue-500 transition-colors"/>
+                     <span className="font-mono truncate">Evidence Source: <span className="text-[#3a3a3a] group-hover:text-blue-700 font-medium">{item.sourceFile}</span></span>
                   </div>
                 </div>
               </div>

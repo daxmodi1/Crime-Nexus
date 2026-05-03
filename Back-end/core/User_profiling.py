@@ -205,6 +205,114 @@ Relationships:
             relationship_properties=["description"],
             strict_mode=True
         )
+
+        # Maximum edges to keep per node when pruning the graph for visualization
+        # (helps reduce clutter while keeping the graph connected)
+        self.max_edges_per_node = 3
+
+    def _prune_edges(
+        self,
+        original_edges: List[Dict[str, Any]],
+        max_edges_per_node: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Prune edges to reduce visual clutter while avoiding isolated nodes.
+
+        Strategy:
+        - Compute node degrees from the original edges.
+        - For each node, keep at most `max_edges_per_node` edges, preferring
+          connections to higher-degree neighbors (preserves hubs).
+        - Ensure nodes that originally had edges keep at least one edge.
+        - Try to reconnect disconnected components by adding back original
+          edges that bridge components if available.
+        """
+        if max_edges_per_node is None:
+            max_edges_per_node = self.max_edges_per_node
+
+        if not original_edges:
+            return []
+
+        # Degree counts for heuristics
+        degree: Dict[str, int] = {}
+        for e in original_edges:
+            degree[e["source"]] = degree.get(e["source"], 0) + 1
+            degree[e["target"]] = degree.get(e["target"], 0) + 1
+
+        # Adjacency map: node -> list of edges (edge objects)
+        adj: Dict[str, List[Dict[str, Any]]] = {}
+        for e in original_edges:
+            adj.setdefault(e["source"], []).append(e)
+            adj.setdefault(e["target"], []).append(e)
+
+        kept_keys = set()
+
+        # For each node, pick up to max_edges_per_node edges preferring
+        # neighbors with higher degree (so hubs remain connected)
+        for node, edges in adj.items():
+            if len(edges) <= max_edges_per_node:
+                for e in edges:
+                    kept_keys.add((e["source"], e["target"], e["relationship"]))
+            else:
+                def neighbor_degree(edge: Dict[str, Any]) -> int:
+                    other = edge["target"] if edge["source"] == node else edge["source"]
+                    return degree.get(other, 0)
+
+                sorted_edges = sorted(edges, key=neighbor_degree, reverse=True)
+                for e in sorted_edges[:max_edges_per_node]:
+                    kept_keys.add((e["source"], e["target"], e["relationship"]))
+
+        # Build kept edges list preserving original order/properties
+        kept_edges: List[Dict[str, Any]] = []
+        for e in original_edges:
+            key = (e["source"], e["target"], e["relationship"])
+            if key in kept_keys:
+                kept_edges.append(e)
+
+        # Ensure nodes that originally had edges keep at least one edge
+        nodes_with_original = set(n for e in original_edges for n in (e["source"], e["target"]))
+        nodes_with_kept = set(n for e in kept_edges for n in (e["source"], e["target"]))
+        missing_nodes = nodes_with_original - nodes_with_kept
+        if missing_nodes:
+            for node in missing_nodes:
+                for e in original_edges:
+                    if node in (e["source"], e["target"]):
+                        key = (e["source"], e["target"], e["relationship"])
+                        if key not in kept_keys:
+                            kept_keys.add(key)
+                            kept_edges.append(e)
+                            break
+
+        # Try to ensure the graph stays reasonably connected by adding back
+        # original edges that bridge different components (if present)
+        parent: Dict[str, str] = {}
+
+        def find(x: str) -> str:
+            parent.setdefault(x, x)
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        def union(a: str, b: str) -> None:
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[rb] = ra
+
+        for e in kept_edges:
+            union(e["source"], e["target"])
+
+        # Connect components using original edges that cross components
+        components = set(find(n) for n in nodes_with_original)
+        if len(components) > 1:
+            for e in original_edges:
+                if find(e["source"]) != find(e["target"]):
+                    key = (e["source"], e["target"], e["relationship"])
+                    if key not in kept_keys:
+                        kept_keys.add(key)
+                        kept_edges.append(e)
+                        union(e["source"], e["target"]) 
+
+        return kept_edges
     
     # ---------- anomaly scoring (post graph-extraction) ----------
 
@@ -341,6 +449,10 @@ Relationships:
                 if edge_key not in edge_set:
                     edge_set.add(edge_key)
                     unique_edges.append(edge)
+
+            # --- Prune edges to reduce clutter while avoiding isolated nodes ---
+            pruned_edges = self._prune_edges(unique_edges, max_edges_per_node=self.max_edges_per_node)
+            unique_edges = pruned_edges
 
             # --- Step 2: Anomaly scoring (new) — uses graph data only ---
             anomaly_map = self._score_entities(all_nodes, unique_edges)

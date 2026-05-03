@@ -10,11 +10,11 @@ async function createSession(title = 'New Investigation') {
   return await res.json();
 }
 
-async function sendChatMessage(sessionId, message) {
+async function sendChatMessage(sessionId, message, deepResearch = false) {
   const res = await fetch(`${BASE_URL}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ session_id: sessionId, message })
+    body: JSON.stringify({ session_id: sessionId, message, deep_research: deepResearch })
   });
   if (!res.ok) {
     const text = await res.text();
@@ -26,6 +26,14 @@ async function sendChatMessage(sessionId, message) {
 async function getSessionMessages(sessionId) {
   const res = await fetch(`${BASE_URL}/sessions/${sessionId}/messages`);
   if (!res.ok) throw new Error('Failed to fetch messages');
+  return await res.json();
+}
+
+async function clearSessionMessages(sessionId) {
+  const res = await fetch(`${BASE_URL}/sessions/${sessionId}/messages`, {
+    method: 'DELETE'
+  });
+  if (!res.ok) throw new Error('Failed to clear messages');
   return await res.json();
 }
 
@@ -149,6 +157,7 @@ export {
   createSession, 
   sendChatMessage, 
   getSessionMessages, 
+  clearSessionMessages,
   uploadFile, 
   getSessions, 
   getSessionFiles, 

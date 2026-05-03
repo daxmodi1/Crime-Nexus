@@ -144,6 +144,12 @@ const EntityCard = ({ entity, relationships, getNodeColor, onViewTimeline, timel
             {relationships.map((rel, i) => (
               <span key={i} className="text-xs bg-[#f4f4f4] text-[#3a3a3a] px-2 py-1 rounded-lg border border-[#e8e8e4]">
                 {rel.relationship} → {typeof rel.target === 'string' ? rel.target : rel.target?.id}
+                {rel.weight ? (
+                  <span className="ml-1 text-[#a1a19b] font-mono">
+                    w{rel.weight}
+                    {rel.evidenceCount ? `/${rel.evidenceCount}` : ''}
+                  </span>
+                ) : null}
               </span>
             ))}
           </div>
@@ -351,7 +357,12 @@ const PeopleTab = ({ sessionId, isNotesOpen, highlightTarget }) => {
         const links = graphRes.edges.map(e => ({
           source: e.source,
           target: e.target,
-          relationship: e.relationship
+          relationship: e.relationship,
+          weight: e.weight || 1,
+          confidence: e.confidence || 0.5,
+          sourceFiles: e.source_files || [],
+          evidenceCount: e.evidence_count || 1,
+          properties: e.properties || {},
         }));
         
         setGraphData({ nodes, links });
@@ -566,13 +577,23 @@ const PeopleTab = ({ sessionId, isNotesOpen, highlightTarget }) => {
             nodeLabel={() => ''} // Disable default tooltip to use custom drawn labels
             nodeRelSize={6}
             onNodeClick={handleNodeClick}
-            linkLabel={link => link.relationship}
-            linkColor={() => 'rgba(0, 0, 0, 0.08)'}
-            linkWidth={1.5}
-            linkDirectionalParticles={2}
-            linkDirectionalParticleWidth={2}
-            linkDirectionalParticleColor={() => 'rgba(0, 0, 0, 0.3)'}
-            linkDirectionalParticleSpeed={d => 0.005 + (Math.random() * 0.005)}
+            linkLabel={link => {
+              const files = link.sourceFiles?.length ? `\nSources: ${link.sourceFiles.slice(0, 3).join(', ')}` : '';
+              const more = link.sourceFiles?.length > 3 ? ` +${link.sourceFiles.length - 3} more` : '';
+              const confidence = Math.round((link.confidence || 0) * 100);
+              return `${link.relationship}\nStrength: ${link.weight || 1}/10\nEvidence: ${link.evidenceCount || 1}\nConfidence: ${confidence}%${files}${more}`;
+            }}
+            linkColor={link => {
+              const weight = link.weight || 1;
+              if (weight >= 7) return 'rgba(31, 31, 31, 0.42)';
+              if (weight >= 4) return 'rgba(31, 31, 31, 0.24)';
+              return 'rgba(0, 0, 0, 0.10)';
+            }}
+            linkWidth={link => Math.max(1, Math.min(6, 0.75 + (link.weight || 1) * 0.45))}
+            linkDirectionalParticles={link => Math.min(5, Math.max(1, Math.ceil((link.weight || 1) / 3)))}
+            linkDirectionalParticleWidth={link => Math.max(1.5, Math.min(4, 1.2 + (link.weight || 1) * 0.25))}
+            linkDirectionalParticleColor={link => (link.weight || 1) >= 5 ? 'rgba(31, 31, 31, 0.55)' : 'rgba(0, 0, 0, 0.28)'}
+            linkDirectionalParticleSpeed={link => 0.003 + Math.min(0.008, (link.weight || 1) * 0.0008)}
             backgroundColor="#ffffff"
             nodeCanvasObject={(node, ctx, globalScale) => {
               const label = node.name;

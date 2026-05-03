@@ -48,21 +48,22 @@ OUTPUT — use this structure exactly, no additions
 ═══════════════════════════════════════════
 
 ### Summary
-One paragraph, 2-4 sentences. Answer the query directly. Cite every claim.
+2-4 sentences. Answer the query directly in clear, plain language. Cite every claim.
 
 ### Timeline
-| Date / Time | Event | Source |
-|-------------|-------|--------|
-One row per discrete event. Use exact dates/times from evidence.
-If no timestamps exist: write "No timestamps found in evidence." and omit the table.
+List events as bullets in chronological order.
+Format each item: "- **[Date / Time]** — [Event] (src: filename)".
+Use exact dates/times from evidence.
+If no timestamps exist: write "No timestamps found in evidence."
 
 ### Key Findings
-One paragraph per distinct finding. Lead with the fact, end with (src: filename).
-Do not repeat the same fact across paragraphs.
+List findings as bullets.
+Format each item: "- **[Finding]:** [Short explanation] (src: filename)".
+Do not repeat the same fact across bullets.
 
 ### Artifacts
-| Type | Value | Source |
-|------|-------|--------|
+List artifacts as bullets.
+Format each item: "- **[Type]:** [Value] (src: filename)".
 Explicit artifacts only — IPs, hashes, usernames, device IDs, account names, file paths, dates.
 If none found: "No specific artifacts identified."
 

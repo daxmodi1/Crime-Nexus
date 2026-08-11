@@ -29,8 +29,19 @@ Vite exposes only `VITE_`-prefixed variables to client code, and reads them at s
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
 | `VITE_API_URL` | No | `http://localhost:8000` | Backend base URL |
-| `VITE_SUPABASE_URL` | Yes | — | Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Yes | — | Supabase anon key |
+| `VITE_SUPABASE_URL` | Yes | — | Supabase project URL. Must be non-empty. |
+| `VITE_SUPABASE_ANON_KEY` | Yes | — | Supabase anon key. Must be non-empty. |
+| `VITE_DEV_BYPASS_AUTH` | No | `false` | Local development only — skips the Supabase login gate |
+
+Both Supabase values must be non-empty even when the bypass is on: `createClient()` throws `supabaseUrl is required.` on an empty string, and since `lib/supabase.js` runs at module load, that exception kills the app before React mounts — a blank page with nothing in the console. Any placeholder works.
+
+To develop without a Supabase project, put this in `.env.local`:
+
+```bash
+VITE_DEV_BYPASS_AUTH=true
+VITE_SUPABASE_URL=http://localhost:54321
+VITE_SUPABASE_ANON_KEY=dev-placeholder-anon-key
+```
 
 ## Structure
 

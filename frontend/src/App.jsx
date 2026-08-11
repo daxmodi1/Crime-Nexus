@@ -10,6 +10,12 @@ import ProcessingView from './components/views/ProcessingView';
 import DashboardView from './components/views/DashboardView';
 import Sidebar from './components/layout/Sidebar';
 
+// Local development escape hatch. Set VITE_DEV_BYPASS_AUTH=true in .env.local to
+// skip the Supabase gate when running without a Supabase project. Off by default,
+// so production behavior is unchanged.
+const DEV_BYPASS_AUTH = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
+const DEV_SESSION = { user: { id: 'dev-local', email: 'dev@localhost' } };
+
 // Inner component for authenticated workspace
 const AuthenticatedWorkspace = () => {
   const [savedCases, setSavedCases] = useState([]);
@@ -118,6 +124,7 @@ const AuthenticatedWorkspace = () => {
   };
 
   const handleLogout = async () => {
+    if (DEV_BYPASS_AUTH) return;
     await supabase.auth.signOut();
   };
 
@@ -152,9 +159,11 @@ const AuthenticatedWorkspace = () => {
 
 // Main App Component with Supabase Auth Routing
 export default function App() {
-  const [session, setSession] = useState(undefined);
+  const [session, setSession] = useState(DEV_BYPASS_AUTH ? DEV_SESSION : undefined);
 
   useEffect(() => {
+    if (DEV_BYPASS_AUTH) return;
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);

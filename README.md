@@ -1,18 +1,50 @@
 # Crime Nexus
 
-AI-powered digital forensics workspace. Upload case evidence, then question it in natural language, reconstruct a timeline, surface anomalies, and map the people involved — all grounded in the documents you supplied.
+An investigation workspace for digital evidence. Drop in the case files, then ask questions about them the way you would ask a colleague — who was involved, what happened when, what does not add up. Every answer is grounded in the documents you uploaded and cites the file it came from.
 
-The backend is a FastAPI service ("NEXUS - Digital Forensics RAG API") that ingests documents into a Chroma vector store and answers questions through a LangChain retrieval pipeline. The frontend is a React investigation dashboard.
+Under the hood: a FastAPI service ingests documents into a Chroma vector store and answers through a LangChain retrieval pipeline, with a React dashboard on top.
 
 ## Features
 
-- **Evidence ingestion** — upload individual documents or a ZIP archive of a case file. PDF, DOCX, DOC, PPTX, PPT, RTF, TXT, CSV, JSON, and LOG are supported; rich formats are parsed with Docling.
-- **RAG chat** — ask questions about the evidence and get answers with source citations. An optional deep-research toggle widens the search to the web via Tavily.
-- **Timeline reconstruction** — extract dated events from the evidence and view them chronologically, optionally filtered to a single entity.
-- **Anomaly detection** — score documents and events for inconsistencies worth a second look.
-- **Entity extraction and graph** — pull people and their relationships out of the evidence and render them as a force-directed graph.
-- **Investigation notes** — a draggable sidebar of case notes with deep links back to evidence.
-- **Sessions** — each investigation is a session with its own evidence, chat history, notes, and vector collection.
+Work is organized into **sessions** — one per investigation, each with its own evidence, chat history, notes, entity graph, timeline, and isolated vector collection. Nothing leaks between cases.
+
+### Evidence ingestion
+
+Drop in a single document or a ZIP of the whole case file. Supported: `.pdf`, `.docx`, `.doc`, `.pptx`, `.ppt`, `.rtf`, `.txt`, `.csv`, `.json`, `.log`.
+
+Rich formats go through [Docling](https://github.com/docling-project/docling), which keeps tables and layout intact rather than flattening everything to a wall of text — it matters when the evidence is a report with structured fields. Plain-text formats take a lighter path. Extracted text is cached beside the original, duplicate uploads are caught by file hash, and the result is chunked (1000 characters, 200 overlap) and embedded into the session's collection.
+
+### Chat
+
+Ask a question, get a structured forensic report back rather than a paragraph of prose. Retrieval works harder than a plain similarity lookup:
+
+1. `MultiQueryRetriever` rewrites your question into 4 alternate phrasings and keeps the original — 5 queries total.
+2. Each runs through an MMR retriever (`k=4`, `fetch_k=8`, `lambda_mult=0.5`) that trades off relevance against diversity.
+3. Results are merged and deduplicated into roughly 20 unique chunks.
+4. Every chunk is wrapped in `[SOURCE]` tags so the model can cite exact filenames.
+5. Groq generates the answer at `temperature=0` — no creative gap-filling.
+
+Answers come back with a **Summary**, the extracted facts, and — the useful part — an **Evidence Gaps** section that says plainly what it could *not* find in your documents, instead of quietly inventing it. Cited files show up as Reference Source cards under each answer. A **Deep Research** toggle in the composer widens the search to the live web via Tavily when the case file alone is not enough.
+
+### Analysis
+
+Every evidence file in one table, with its category, case relevance, and an anomaly score out of 100. The score is a triage aid, not a verdict — it flags internal inconsistencies, timeline conflicts, and unusual content patterns so you know which document to read first. **Re-detect Anomalies** re-runs scoring across the session.
+
+### People
+
+Who appears in the case, and how they connect. **Extract from Evidence** pulls people, organizations, and relationships out of the documents, each carrying its own anomaly score and the flags behind it. View the result as an interactive force-directed graph or as a plain list — the graph is better for spotting clusters, the list for working through them. Click an entity anywhere else in the app and this tab jumps to it.
+
+### Timeline
+
+The case in chronological order, rebuilt from dates buried in the documents. Each event shows its type, the actors involved, any artifacts referenced, the source file, and a confidence level — so a low-confidence guess never sits on the page looking like an established fact. Filter to one entity to follow just their movements, or **Re-Extract Timeline** to rebuild from scratch.
+
+### Raw Files
+
+The original evidence, unprocessed. PDFs preview inline; anything can be opened in a new tab or downloaded. Useful when you want to check what the model actually read.
+
+### Investigation notes
+
+A side panel that follows you across tabs. Drag entities, timeline events, or files into a note and they attach as deep links you can click back to later. Tag notes to group them. Everything persists per session.
 
 ## Architecture
 
@@ -36,7 +68,7 @@ graph LR
     API -.optional.-> TV
 ```
 
-Evidence flows in through the upload endpoints, gets split into chunks, embedded with Ollama's `nomic-embed-text`, and stored in a per-session Chroma collection. Questions retrieve the top matching chunks and pass them to Groq for generation. Sessions, messages, notes, people, timelines, and anomalies live in SQLite.
+Worth noting where the work happens: embeddings run **locally** through Ollama, so the raw text of your evidence is never shipped to an embedding provider. Only the retrieved chunks needed to answer a given question go out to Groq for generation. Sessions, messages, notes, people, timelines, and anomalies all live in a local SQLite file.
 
 ## Tech stack
 
@@ -44,40 +76,65 @@ Evidence flows in through the upload endpoints, gets split into chunks, embedded
 
 **Frontend** — React 19, Vite 7, Tailwind CSS 4, React Router 7, Supabase JS, react-force-graph-2d, react-markdown, lucide-react.
 
-## Prerequisites
-
-- Python 3.13
-- [uv](https://docs.astral.sh/uv/) for backend dependency management
-- Node.js 18 or newer
-- [Ollama](https://ollama.com) running locally with the embedding model pulled:
-  ```bash
-  ollama pull nomic-embed-text
-  ```
-- A Groq API key — https://console.groq.com/keys
-- A Supabase project for authentication — https://supabase.com
-
 ## Setup
 
-### Backend
+Five steps from a fresh clone to a running app. The first three are one-time installs; budget about fifteen minutes for the whole thing, most of it waiting on downloads.
+
+### 1. Install the toolchain
+
+| Tool | Why | Install |
+|---|---|---|
+| Python 3.13+ | backend runtime | `uv` can fetch it for you (next row) |
+| [uv](https://docs.astral.sh/uv/) | backend dependencies | `brew install uv` — or see the uv docs for Linux/Windows |
+| Node.js 18+ | frontend | `brew install node` / [nodejs.org](https://nodejs.org) |
+| [Ollama](https://ollama.com) | local embedding model | `brew install ollama` — or download from ollama.com |
+
+`uv` reads `backend/.python-version` and downloads a matching Python automatically, so you do not need to install 3.13 yourself.
+
+### 2. Start Ollama and pull the embedding model
+
+Embeddings run on your machine, so Ollama has to be up before you upload anything. If it is not, ingestion fails rather than falling back to a hosted model.
+
+```bash
+ollama serve                     # leave running, listens on :11434
+ollama pull nomic-embed-text     # 274 MB, one time
+```
+
+Verify it:
+
+```bash
+curl http://localhost:11434/api/tags     # should list nomic-embed-text
+```
+
+### 3. Get API keys
+
+- **Groq — required.** https://console.groq.com/keys. Free tier is enough. The backend refuses to start without it.
+- **Tavily — optional.** https://app.tavily.com. Only enables the Deep Research toggle in chat.
+- **Supabase — required for real login.** https://supabase.com, create a free project, then Project Settings → API for the URL and anon key. Under Authentication → Providers → Email, turn off *Confirm email* so signup works without a mail round-trip. To skip Supabase entirely while developing, see [Running without Supabase](#running-without-supabase).
+
+### 4. Backend
 
 ```bash
 cd backend
-uv sync
-cp .env.example .env      # then fill in GROQ_API_KEY
+uv sync                   # creates .venv, installs everything from uv.lock
+cp .env.example .env      # then set GROQ_API_KEY
 ```
 
-`requirements.txt` is also provided if you prefer pip:
+`uv sync` pulls in Docling and its Torch dependency, so expect a few minutes and roughly 1.3 GB in `.venv`.
+
+If you would rather use pip with your own Python 3.13:
 
 ```bash
+python3.13 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Frontend
+### 5. Frontend
 
 ```bash
 cd frontend
 npm install
-cp .env.example .env.local   # then fill in the Supabase values
+cp .env.example .env.local   # then set the Supabase values
 ```
 
 ## Environment variables
@@ -100,26 +157,62 @@ cp .env.example .env.local   # then fill in the Supabase values
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
 | `VITE_API_URL` | No | `http://localhost:8000` | Backend base URL. |
-| `VITE_SUPABASE_URL` | Yes | — | Supabase project URL, used for auth. |
-| `VITE_SUPABASE_ANON_KEY` | Yes | — | Supabase anon key. |
+| `VITE_SUPABASE_URL` | Yes | — | Supabase project URL, used for auth. Must be non-empty — see below. |
+| `VITE_SUPABASE_ANON_KEY` | Yes | — | Supabase anon key. Must be non-empty — see below. |
+| `VITE_DEV_BYPASS_AUTH` | No | `false` | Local development only. Set to `true` to skip the Supabase login gate. |
+
+Vite reads these once at startup and only exposes `VITE_`-prefixed variables to client code. Restart the dev server after editing.
+
+### Running without Supabase
+
+If you just want to see the app work, you can skip the login flow rather than setting up a project first. In `frontend/.env.local`:
+
+```bash
+VITE_DEV_BYPASS_AUTH=true
+VITE_SUPABASE_URL=http://localhost:54321
+VITE_SUPABASE_ANON_KEY=dev-placeholder-anon-key
+```
+
+The placeholder values are not decoration — leave them blank and you get the blank-page failure described in [Troubleshooting](#troubleshooting). Any non-empty strings will do; with the bypass on, no auth request is ever sent to them.
+
+`VITE_DEV_BYPASS_AUTH` defaults to off, so this touches local development only and production builds behave normally. `.env.local` is gitignored, so the flag cannot follow you into a commit by accident.
 
 ## Running
 
-Two terminals. Backend first — the frontend expects it on port 8000.
+Three terminals. Order matters: Ollama must be up before any upload, and the backend before the frontend.
 
 ```bash
-# Terminal 1
+# Terminal 1 — embeddings
+ollama serve                   # http://localhost:11434
+```
+
+```bash
+# Terminal 2 — backend
 cd backend
 uv run python main.py          # http://localhost:8000, auto-reload enabled
 ```
 
 ```bash
-# Terminal 2
+# Terminal 3 — frontend
 cd frontend
 npm run dev                    # http://localhost:5173
 ```
 
-Interactive API docs are at http://localhost:8000/docs.
+Open http://localhost:5173. Interactive API docs are at http://localhost:8000/docs.
+
+### First run
+
+Create a case, upload a document, and be patient. **The first upload takes several minutes** — Docling is downloading its layout and table-recognition models, and nothing in the UI says so. Watch the backend terminal instead; `[INGEST]` lines mean it is through. Every upload after that takes seconds.
+
+Once ingestion finishes you can chat straight away. Entity extraction, timeline reconstruction, and anomaly detection are not automatic — each runs from its own tab via the **Extract** or **Re-detect** button, and takes a few seconds per document.
+
+### Ports
+
+| Port | Service |
+|---|---|
+| 5173 | Vite dev server |
+| 8000 | FastAPI backend |
+| 11434 | Ollama |
 
 CORS is restricted to `localhost` and `127.0.0.1` on ports 5173 and 3000. Serving the frontend from any other origin requires editing the `allow_origins` list in `backend/main.py`.
 
@@ -229,7 +322,21 @@ Base URL `http://localhost:8000`. Full interactive schema at `/docs`.
 
 ## Troubleshooting
 
-**Backend exits immediately with a validation error for `GROQ_API_KEY`** — `backend/.env` is missing or the key is blank. It is the one required setting.
+The failures you are most likely to hit, and what they actually mean.
+
+**Backend exits immediately:**
+```
+pydantic_core._pydantic_core.ValidationError: 1 validation error for Settings
+GROQ_API_KEY
+  Field required
+```
+`backend/.env` is missing or the key is blank. It is the one required setting.
+
+**Blank white page, nothing in the console** — this one is genuinely confusing, because there is no error to go on. `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` is empty, `createClient()` throws `supabaseUrl is required.` while the module is still loading, and React never gets as far as mounting. Confirm it from the browser console:
+```js
+await import('/src/lib/supabase.js')
+```
+Fill both values in `frontend/.env.local` and restart the dev server, or use the [Supabase bypass](#running-without-supabase).
 
 **Uploads fail or chat returns no sources** — Ollama is not reachable. Confirm it is running and the model is pulled:
 ```bash
@@ -237,8 +344,12 @@ ollama list | grep nomic-embed-text
 curl http://localhost:11434/api/tags
 ```
 
+**First upload seems to hang** — Docling is downloading its parsing models, which takes several minutes with no progress in the UI. Watch the backend terminal; you will see `[INGEST]` lines when it finishes. Only happens once.
+
 **Browser console shows CORS errors** — the frontend is being served from an origin outside the allowlist in `backend/main.py`. Use port 5173 or 3000, or add your origin there.
 
 **Deep research returns nothing** — `TAVILY_API_KEY` is unset. The rest of chat works without it.
 
-**Frontend loads but login fails** — `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` is missing from `frontend/.env.local`. Vite only reads these at startup, so restart the dev server after editing.
+**Login fails but the page renders** — the Supabase project rejects the credentials, or email confirmation is still on. Turn off *Confirm email* under Authentication → Providers → Email.
+
+**`uv sync` fails on Python version** — `uv` should fetch 3.13 automatically. If it does not, run `uv python install 3.13` first.

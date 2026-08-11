@@ -1,0 +1,24 @@
+# Generated at runtime — kept out of version control.
+# Both are recreated automatically on first run.
+backend/chroma_db/
+backend/data/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/

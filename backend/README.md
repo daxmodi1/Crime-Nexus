@@ -57,8 +57,7 @@ Run from this directory — all data paths are relative to it.
 
 | Task | Model | Provider |
 |---|---|---|
-| Chat, entity profiling, anomaly detection | `llama-3.3-70b-versatile` | Groq |
-| Timeline extraction | `llama-3.1-8b-instant` | Groq |
+| Chat, entity profiling, timeline extraction, anomaly detection | `qwen/qwen3.8-27b` | Groq |
 | Embeddings | `nomic-embed-text` | Ollama (local) |
 
 ## Generated directories

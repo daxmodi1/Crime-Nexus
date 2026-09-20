@@ -72,7 +72,7 @@ Worth noting where the work happens: embeddings run **locally** through Ollama, 
 
 ## Tech stack
 
-**Backend** — Python 3.13, FastAPI, Uvicorn, LangChain, Chroma, Docling, Pydantic Settings, SQLite. Generation runs on Groq (`llama-3.3-70b-versatile` for chat, entity profiling, and anomaly detection; `llama-3.1-8b-instant` for timeline extraction). Embeddings run locally on Ollama (`nomic-embed-text`).
+**Backend** — Python 3.13, FastAPI, Uvicorn, LangChain, Chroma, Docling, Pydantic Settings, SQLite. Generation runs on Groq (`qwen/qwen3.8-27b` for chat, entity profiling, timeline extraction, and anomaly detection). Embeddings run locally on Ollama (`nomic-embed-text`).
 
 **Frontend** — React 19, Vite 7, Tailwind CSS 4, React Router 7, Supabase JS, react-force-graph-2d, react-markdown, lucide-react.
 

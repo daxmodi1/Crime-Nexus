@@ -6,6 +6,7 @@ Includes entity-level anomaly scoring computed alongside graph extraction.
 
 import os
 import json
+import re
 import traceback
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
@@ -85,6 +86,31 @@ class UserProfilingEngine:
         "SENT_TO", "RECEIVED_FROM", "INVOLVED_IN", "LOCATED_AT", 
         "ASSOCIATED_WITH", "PARTICIPATED_IN"
     ]
+
+    # Graph extraction asks the model to return every node and edge as a tool
+    # argument.  Sending a whole report in one request can therefore make the
+    # *response* (not just the prompt) too large and increases malformed tool
+    # calls.  Keep each graph request small enough to leave ample room for the
+    # DynamicGraph JSON response.
+    MAX_GRAPH_CHUNK_CHARS = 3_500
+    MAX_GRAPH_CHUNKS_PER_SOURCE = 20
+
+    # Signals that a paragraph is likely to contain an entity or a connection
+    # worth putting in the graph.  This intentionally favours factual passages
+    # over headings, boilerplate, and generic legal language.
+    GRAPH_SIGNAL_PATTERN = re.compile(
+        r"\b(?:"
+        r"(?:met|saw|called|contacted|sent|received|owned|worked|lived|"
+        r"located|arrested|reported|witnessed|participated|associated|"
+        r"transferred|paid|withdrew|deposited|used|drove|entered|left)|"
+        r"(?:phone|email|account|vehicle|weapon|address|location|"
+        r"detective|officer|suspect|victim|witness|company|organization)|"
+        r"(?:\$\s?\d|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\+?\d[\d .()-]{7,}\b)|"
+        r"(?:street|st\.?|road|rd\.?|avenue|ave\.?|boulevard|blvd\.?)"
+        r")\b",
+        re.IGNORECASE,
+    )
+    PROPER_NAME_PATTERN = re.compile(r"\b[A-Z][a-z]+\s+[A-Z][a-z]+\b")
     
     # ---- Anomaly scoring prompt sent AFTER graph extraction ----
     ANOMALY_SCORING_PROMPT = """You are a forensic intelligence analyst. You have been given:
@@ -192,7 +218,7 @@ Relationships:
     def __init__(self):
         """Initialize the profiling engine with LLM"""
         self.llm = ChatGroq(
-            model_name="llama-3.3-70b-versatile",
+        model_name="qwen/qwen3.8-27b",
             temperature=0,
             api_key=settings.GROQ_API_KEY,
             max_retries=3
@@ -201,14 +227,104 @@ Relationships:
             llm=self.llm,
             allowed_nodes=self.ALLOWED_NODES,
             allowed_relationships=self.ALLOWED_RELATIONSHIPS,
-            node_properties=["description"],
-            relationship_properties=["description"],
+            # Do not request optional property arrays.  Qwen intermittently
+            # serializes those nested objects with Python-style quotes, which
+            # Groq rejects before LangChain can construct the graph.  IDs,
+            # types, and relationship types are sufficient to build the graph.
+            node_properties=False,
+            relationship_properties=False,
             strict_mode=True
         )
 
         # Maximum edges to keep per node when pruning the graph for visualization
         # (helps reduce clutter while keeping the graph connected)
         self.max_edges_per_node = 3
+
+    @classmethod
+    def _graph_relevance_score(cls, passage: str) -> int:
+        """Score a passage by the graph facts it is likely to contain."""
+        signals = len(cls.GRAPH_SIGNAL_PATTERN.findall(passage))
+        names = len(cls.PROPER_NAME_PATTERN.findall(passage))
+        # A relationship normally needs at least two entities, so passages
+        # containing multiple person names get a useful, but bounded, boost.
+        return signals * 3 + min(names, 4) * 2
+
+    @classmethod
+    def _split_graph_passages(cls, text: str) -> List[str]:
+        """Split extracted text on paragraph/sentence boundaries, never by token."""
+        paragraphs = [
+            part.strip()
+            for part in re.split(r"\n\s*\n+", text)
+            if part.strip()
+        ]
+        passages: List[str] = []
+        for paragraph in paragraphs:
+            if len(paragraph) <= cls.MAX_GRAPH_CHUNK_CHARS:
+                passages.append(paragraph)
+                continue
+
+            sentences = re.split(r"(?<=[.!?])\s+", paragraph)
+            current: List[str] = []
+            current_length = 0
+            for sentence in sentences:
+                # A sentence without punctuation may itself be enormous; make
+                # a last-resort word-boundary split rather than discard it.
+                words = re.findall(r"\S+", sentence)
+                for word in words:
+                    addition = len(word) + (1 if current else 0)
+                    if current and current_length + addition > cls.MAX_GRAPH_CHUNK_CHARS:
+                        passages.append(" ".join(current))
+                        current, current_length = [], 0
+                    current.append(word)
+                    current_length += addition
+            if current:
+                passages.append(" ".join(current))
+        return passages
+
+    def _prepare_documents_for_graph(self, documents: List[Document]) -> List[Document]:
+        """Create compact, evidence-dense documents for bounded graph responses.
+
+        Relevant passages are retained in their original order and packed into
+        small requests.  If a source exceeds the cap, the highest-scoring
+        passages are selected, then restored to document order so surrounding
+        facts remain readable to the model.
+        """
+        prepared: List[Document] = []
+        for document in documents:
+            passages = self._split_graph_passages(document.page_content)
+            scored = [
+                (index, passage, self._graph_relevance_score(passage))
+                for index, passage in enumerate(passages)
+            ]
+            relevant = [item for item in scored if item[2] > 0]
+            candidates = relevant or scored
+
+            # Avoid allowing one unusually long source to monopolize graph
+            # extraction, while preserving its strongest factual passages.
+            max_passages = self.MAX_GRAPH_CHUNKS_PER_SOURCE * 4
+            if len(candidates) > max_passages:
+                candidates = sorted(candidates, key=lambda item: item[2], reverse=True)[:max_passages]
+            candidates.sort(key=lambda item: item[0])
+
+            packed: List[str] = []
+            current: List[str] = []
+            current_length = 0
+            for _, passage, _ in candidates:
+                addition = len(passage) + (2 if current else 0)
+                if current and current_length + addition > self.MAX_GRAPH_CHUNK_CHARS:
+                    packed.append("\n\n".join(current))
+                    current, current_length = [], 0
+                current.append(passage)
+                current_length += addition
+            if current:
+                packed.append("\n\n".join(current))
+
+            for chunk_index, content in enumerate(packed[:self.MAX_GRAPH_CHUNKS_PER_SOURCE]):
+                metadata = dict(document.metadata)
+                metadata.update({"graph_chunk": chunk_index, "graph_chunk_count": len(packed)})
+                prepared.append(Document(page_content=content, metadata=metadata))
+
+        return prepared
 
     def _prune_edges(
         self,
@@ -408,8 +524,20 @@ Relationships:
         try:
             print(f"[UserProfiling] Processing {len(documents)} documents for entity extraction...")
 
-            # --- Step 1: Graph extraction (existing) ---
-            graph_docs = self.graph_transformer.convert_to_graph_documents(documents)
+            # --- Step 1: bounded, evidence-dense graph extraction ---
+            graph_input_documents = self._prepare_documents_for_graph(documents)
+            if not graph_input_documents:
+                return {
+                    "nodes": [],
+                    "edges": [],
+                    "message": "No graph-relevant text could be prepared from the documents",
+                }
+            print(
+                "[UserProfiling] Prepared "
+                f"{len(graph_input_documents)} graph chunks from {len(documents)} documents "
+                f"(max {self.MAX_GRAPH_CHUNK_CHARS} characters per request)"
+            )
+            graph_docs = self.graph_transformer.convert_to_graph_documents(graph_input_documents)
             print(f"[UserProfiling] Extracted {len(graph_docs)} graph documents")
 
             for graph_doc in graph_docs:

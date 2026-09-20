@@ -212,7 +212,7 @@ def get_rag_chain(session_id: str):
         chain.invoke("your question here")
     """
     llm = ChatGroq(
-        model_name="llama-3.3-70b-versatile",
+        model_name="qwen/qwen3.8-27b",
         temperature=0,              # no creative gap-filling
         api_key=settings.GROQ_API_KEY
     )

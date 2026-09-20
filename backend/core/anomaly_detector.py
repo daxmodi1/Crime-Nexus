@@ -193,7 +193,7 @@ STRICT RULES:
 
     def __init__(self):
         self.llm = ChatGroq(
-            model_name="llama-3.3-70b-versatile",
+            model_name="qwen/qwen3.8-27b",
             temperature=0,
             api_key=settings.GROQ_API_KEY,
             max_retries=3,
